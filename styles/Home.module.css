@@ -63,7 +63,6 @@
 }
 
 .code {
-  background: #fafafa;
   border-radius: 5px;
   padding: 0.75rem;
   font-size: 1.1rem;
@@ -97,6 +96,7 @@
 .card:active {
   color: #0070f3;
   border-color: #0070f3;
+  box-shadow: 0 0 2em rgba(0,112,243,0.3) ;
 }
 
 .card h3 {
