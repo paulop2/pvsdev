@@ -18,6 +18,16 @@ export default function FirstPost() {
           <a> Back to home</a>
         </Link>
       </h2>
+      <h2>
+        <Link href="/three/boxes">
+          <a>Boxes Example</a>
+        </Link>
+      </h2>
+      <h2>
+        <Link href="/three/birds">
+          <a>Birds Example</a>
+        </Link>
+      </h2>
 
       <Image
         src="/images/profile.jpg" // Route of the image file
