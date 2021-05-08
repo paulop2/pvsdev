@@ -1,7 +1,9 @@
 import dynamic from 'next/dynamic'
+import Link from 'next/link'
 import { Suspense } from 'react'
 import { Canvas } from 'react-three-fiber'
 import { OrbitControls } from '@react-three/drei'
+import { HiArrowNarrowLeft } from 'react-icons/hi'
 
 const Bird = dynamic(() => import('../../components/Bird'), { ssr: false })
 
@@ -42,6 +44,7 @@ const BirdsPage = (props) => {
         <Suspense fallback={null}>
           <Birds />
         </Suspense>
+
       </Canvas>
     </>
   )
