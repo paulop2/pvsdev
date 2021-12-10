@@ -3,12 +3,12 @@ import Head from 'next/head'
 import Layout from '../../components/layout'
 import styles from '../../styles/Home.module.css';
 
-export default function AboutMe() {
+export default function Rant() {
 
   return (
     <Layout>
       <Head>
-        <title>Sobre mim</title>
+        <title>Rant</title>
       </Head>
 
       <div className={styles.grid}>
@@ -16,10 +16,12 @@ export default function AboutMe() {
         <a className={styles.card}>
           <Link href="/" >
             <a >
-              <h2> Hobbies </h2>
+              <h2> Inoue </h2>
               <div>
-                Desce criança sempre gostei muito de ler, especialmente mangas (Japão).
-                Ultimamente, venho lendo muitos Manhuas (China) e Manhwas (Coréia).
+                Seguir em frente é como tatear no escuro. <br />
+                A luz que brilha ao longe é frágil e incerta. <br />
+                Mas a luz interna, essa sim, se agita loucamente. <br />
+                Quero sempre me sentir desse jeito. <br />
               </div>
             </a>
           </Link>
