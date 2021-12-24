@@ -13,7 +13,7 @@ export default function FirstPost() {
         <title>First Post</title>
       </Head>
 
-      <h1>First Post</h1>
+      {/* <h1>Testes</h1> */}
 
       <div className={styles.grid}>
 
@@ -36,28 +36,16 @@ export default function FirstPost() {
           </Link>
         </a>
 
-        <a href="https://nextjs.org/docs" className={styles.card}>
-          <h3>Documentation &rarr;</h3>
-          <p>Find in-depth information about Next.js features and API.</p>
+        <a className={styles.card}>
+          <Link href="/posts/art" >
+            <h3> Clique aqui </h3>
+          </Link>
         </a>
-
 
       </div>
 
 
-      <h2>
-        <Link href="/" >
-          <a> Back to home</a>
-        </Link>
-      </h2>
 
-
-      <Image
-        src="/images/profile.jpg" // Route of the image file
-        height={200} // Desired size with correct aspect ratio
-        width={200} // Desired size with correct aspect ratio
-        alt="Your Name"
-      />
     </Layout>
   )
 }
