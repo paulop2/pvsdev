@@ -61,7 +61,8 @@ restringem decisões de DNS):
 
 | # | Sub-projeto | Entrega | Depende de |
 |---|---|---|---|
-| P1 | Deploy/plataforma | `pvsdev` modernizado (Next 15 App Router, `output: export`) no Pages + `pvsouza.com` na raiz, www→raiz, HTTPS. | — |
+| P0 | Processo | Camada leve de rastreamento no repo (templates de epic/feature/task/bug, PR template, `AGENTS.md` + `WORKFLOW.md` curto). | — |
+| P1 | Deploy/plataforma | `pvsdev` modernizado (Next 15 App Router, `output: export`) no Pages + `pvsouza.com` na raiz, www→raiz, HTTPS. | P0 |
 | P2 | Chat v1 | Worker de IA com streaming SSE + render Markdown + Turnstile/rate-limit/teto + UI de chat. | P1 |
 | P3 | RAG playground | Playground do pipeline sobre corpus curado, com scores e citações visíveis. | P2 |
 | P4 | Artefatos v2 | Painel lateral + iframe sandboxed para HTML/SVG. | P2 |
@@ -151,7 +152,37 @@ pvsdev/
 - **Vectorize desde já no RAG**: mais escalável, mas a similaridade vira
   caixa-preta (pior didaticamente) e adiciona infra; migração fica preparada.
 
-## 7. Pontos em aberto (para specs seguintes)
+## 7. Processo e rastreamento (P0 — camada leve)
+
+Adotamos uma versão enxuta do processo do repo `projeto-integrador-PJI240`,
+sem Project board e sem automações.
+
+**Artefatos:**
+
+- `.github/ISSUE_TEMPLATE/{epic,feature,task,bug}.yml` — adaptados do pji240.
+- `.github/pull_request_template.md` — evidências de verificação.
+- `AGENTS.md` — regras permanentes (inclui: **nunca** atribuir ferramentas de IA
+  em commits/PRs/metadados; usar a identidade Git existente).
+- `docs/project/WORKFLOW.md` — versão curta: criar epic → decompor em sub-issues
+  → branch `<tipo>/<numero>-<slug>` → PR com `Closes #numero` → handoff.
+
+**Fontes de verdade:**
+
+| Informação | Fonte |
+|---|---|
+| Regras permanentes | `AGENTS.md` + documentação versionada |
+| Resultado e limites da feature | Epic |
+| Escopo executável e critérios de aceite | Sub-issue |
+| Racional de design | Spec em `docs/superpowers/specs/` |
+| Mudanças e evidências | Pull request |
+
+**Labels:** `epic`, `enhancement` (feature), `task`, `bug` (mesma taxonomia do pji240).
+
+**Fora desta camada (por ora):** Project board (Kind/prioridade/área/esforço),
+milestones, collectors PowerShell, subagents `.opencode` e o ciclo
+worktree+review adversarial+handoff automatizado.
+
+## 8. Pontos em aberto (para specs seguintes)
 
 - Modelos/roteamento exatos por feature (P2/P3).
 - Corpus exato do playground de RAG (provável conjunto curado versionado no repo).
