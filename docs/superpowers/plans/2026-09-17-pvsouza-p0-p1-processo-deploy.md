@@ -42,7 +42,7 @@
 **Remover:**
 - `next.config.js`, `.eslintrc.json`, `yarn.lock`
 - `pages/` inteiro (após migração), incluindo `pages/_app.js`, `pages/api/hello.js`, `pages/index.js`, `pages/public/`
-- `components/layout.js`, `components/layout.module.css`→mantido, `components/Bird.js`, `pages/three/birds.js`
+  - `components/layout.js` (`layout.module.css` é mantido), `components/Bird.js`, `pages/three/birds.js`, `pages/three/boxes.js` (recriado no App Router na Task 4)
 
 ---
 
@@ -427,8 +427,8 @@ Expected: commit criado.
 - Modify: `package.json`
 - Create: `next.config.mjs`, `tsconfig.json`, `app/layout.tsx`, `app/page.tsx`
 - Move: `pages/public/*` → `public/*`
-- Delete: `next.config.js`, `.eslintrc.json`, `yarn.lock`, `pages/index.js`, `pages/three/birds.js`, `components/Bird.js`
-- Modify: `pages/three/boxes.js` (imports R3F), `pages/posts/first-post.js` (remover link de Birds), `.gitignore`
+- Delete: `next.config.js`, `.eslintrc.json`, `yarn.lock`, `pages/index.js`, `pages/three/birds.js`, `pages/three/boxes.js`, `components/Bird.js`
+- Modify: `pages/posts/first-post.js` (remover link de Birds), `.gitignore`
 
 **Interfaces:**
 - Consumes: nada.
@@ -589,6 +589,18 @@ export default function Home() {
             <p>-- em breve --</p>
           </a>
 
+          <div className={styles.card}>
+            <h3>Chat &rarr;</h3>
+            <p>Converse com meu assistente de IA.</p>
+            <p>-- em breve --</p>
+          </div>
+
+          <div className={styles.card}>
+            <h3>RAG &rarr;</h3>
+            <p>Veja o pipeline de retrieval ao vivo.</p>
+            <p>-- em breve --</p>
+          </div>
+
           <Link href="/posts/rants" className={styles.card}>
             <h3>Rants &rarr;</h3>
             <p>Discutindo sobre tudo e todos.</p>
@@ -620,64 +632,13 @@ export default function Home() {
 }
 ```
 
-- [ ] **Step 7: Remover a rota antiga da home e ajustar o three.js remanescente**
+- [ ] **Step 7: Remover a rota antiga da home e o three.js legado**
 
 Run:
 ```powershell
-git rm pages/index.js pages/three/birds.js components/Bird.js
+git rm pages/index.js pages/three/birds.js pages/three/boxes.js components/Bird.js
 ```
-Expected: arquivos removidos. (`pages/_app.js` permanece até a Task 3.)
-
-Substituir todo o conteúdo de `pages/three/boxes.js` por (migração de imports + keys):
-```jsx
-import { useRef, useState } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Box } from '@react-three/drei';
-
-const MyBox = (props) => {
-  const mesh = useRef();
-
-  const [hovered, setHover] = useState(false);
-  const [active, setActive] = useState(false);
-
-  useFrame(() => {
-    if (mesh.current) mesh.current.rotation.x = mesh.current.rotation.y += 0.01;
-  });
-
-  return (
-    <Box
-      args={[1, 1, 1]}
-      {...props}
-      ref={mesh}
-      scale={active ? [6, 6, 6] : [5, 5, 5]}
-      onClick={() => setActive(!active)}
-      onPointerOver={() => setHover(true)}
-      onPointerOut={() => setHover(false)}
-    >
-      <meshStandardMaterial color={hovered ? '#2b6c76' : '#720b23'} />
-    </Box>
-  );
-};
-
-const BoxesPage = () => {
-  return (
-    <>
-      <h1>Click on me - Hover me :)</h1>
-      <Canvas camera={{ position: [0, 0, 35] }}>
-        <ambientLight intensity={2} />
-        <pointLight position={[40, 40, 40]} />
-        <MyBox position={[10, 0, 0]} />
-        <MyBox position={[-10, 0, 0]} />
-        <MyBox position={[0, 10, 0]} />
-        <MyBox position={[0, -10, 0]} />
-        <OrbitControls />
-      </Canvas>
-    </>
-  );
-};
-
-export default BoxesPage;
-```
+Expected: arquivos removidos. (`pages/_app.js` permanece até a Task 3; `pages/three/boxes.js` é recriado no App Router na Task 4.)
 
 Editar `pages/posts/first-post.js`: remover o bloco do card de Birds:
 ```jsx
@@ -702,7 +663,7 @@ Run:
 ```powershell
 npm run build
 ```
-Expected: `Compiled successfully`; rotas `/`, `/posts/*`, `/three/*` listadas; sem erro de módulo.
+Expected: `Compiled successfully`; rotas `/` e `/posts/*` listadas; sem erro de módulo. (`/three/boxes` volta a existir na Task 4.)
 
 Run:
 ```powershell
@@ -757,6 +718,8 @@ const manhwas = [
   { name: 'Kenja no mago', href: 'https://read.kenjanomago.com/' },
   { name: 'legend of northern blade', href: 'https://legendofnorthernblade.com/' },
   { name: 'Volcanic age', href: 'https://luminousscans.com/series/1653732347-volcanic-age/' },
+  { name: 'Volcanic return', href: '' },
+  { name: 'Descent of the demonic master', href: '' },
 ];
 
 export const metadata = { title: 'Sobre mim' };
@@ -774,9 +737,9 @@ export default function AboutMe() {
         </div>
 
         {manhwas.map((item) => (
-          <a key={item.href} href={item.href} className={styles.card}>
+          <a key={item.name} href={item.href} className={styles.card}>
             <h2>{item.name}</h2>
-            <div>{item.href}</div>
+            {item.href ? <div>{item.href}</div> : null}
           </a>
         ))}
       </div>
@@ -891,7 +854,7 @@ Expected: commit criado.
 
 **Files:**
 - Create: `app/three/boxes/page.tsx`, `components/BoxesScene.tsx`, `components/BoxesCanvas.tsx`
-- Delete: `pages/three/`, `components/layout.js`
+- Delete: `components/layout.js` (`pages/three/` já foi removido na Task 2)
 
 **Interfaces:**
 - Consumes: `@react-three/fiber` v9, `@react-three/drei` v10 (Task 2).
@@ -983,9 +946,9 @@ export default function BoxesPage() {
 
 Run:
 ```powershell
-git rm pages/three/boxes.js components/layout.js
+git rm components/layout.js
 ```
-Expected: `pages/three` vazio/removido; `components/layout.module.css` permanece (usado por `PageShell`).
+Expected: `components/layout.js` removido; `components/layout.module.css` permanece (usado por `PageShell`). (`pages/three/boxes.js` já foi removido na Task 2.)
 
 - [ ] **Step 5: Buildar e verificar**
 
@@ -1208,6 +1171,6 @@ Expected: commit criado.
 
 ## Self-Review
 
-- **Cobertura da spec:** §5.1 framework→Tasks 2–5; §5.2 estrutura→Files; §5.3 deploy→Tasks 6–7; §5.4 conteúdo→Tasks 2–4 (com adiamento do `birds`, previsto na mitigação §5.6); §5.5 verificação→smoke/DNS/curl; §7 processo→Task 1.
+- **Cobertura da spec:** §5.1 framework→Tasks 2–5; §5.2 estrutura→Files; §5.3 deploy→Tasks 6–7; §5.4 conteúdo→Tasks 2–4 (home com placeholders Chat/RAG "em breve", 12 cards de about-me preservados, correção pendente de links absorvida na nova página, e adiamento do `birds` previsto na mitigação §5.6); §5.5 verificação→smoke/DNS/curl; §7 processo→Task 1.
 - **Placeholders:** nenhum "TBD"; todo passo traz comando/código e saída esperada.
 - **Consistência de tipos:** `PageShell` e `BoxesScene`/`BoxesCanvas` com nomes únicos; alias `@/*` definido no `tsconfig` e usado consistentemente.
