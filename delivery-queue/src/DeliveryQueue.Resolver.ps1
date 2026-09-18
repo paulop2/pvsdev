@@ -61,3 +61,87 @@ function Test-DeliveryQueuePolicy {
 
     return ,$problems
 }
+
+function New-IssueId {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [string]$Repository,
+        [Parameter(Mandatory)] [int]$Number
+    )
+
+    return "$Repository#$Number"
+}
+
+function Get-NodeIndex {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)] [object]$Snapshot)
+
+    $repository = [string](Get-Prop -Object $Snapshot -Name 'repository')
+    $index = @{}
+
+    foreach ($node in (Get-Array -Value (Get-Prop -Object $Snapshot -Name 'issues'))) {
+        $id = [string](Get-Prop -Object $node -Name 'id')
+        if ([string]::IsNullOrWhiteSpace($id)) {
+            $id = New-IssueId -Repository $repository -Number ([int](Get-Prop -Object $node -Name 'number'))
+        }
+        $index[$id] = $node
+    }
+
+    return $index
+}
+
+function Get-TopologicalOrder {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)] [object]$Snapshot)
+
+    $index = Get-NodeIndex -Snapshot $Snapshot
+
+    $inScope = @()
+    foreach ($key in $index.Keys) {
+        if ([bool](Get-Prop -Object $index[$key] -Name 'inScope' -Default $true)) {
+            $inScope += [string]$key
+        }
+    }
+
+    $sortKey = @{}
+    $inDegree = @{}
+    $dependents = @{}
+    foreach ($id in $inScope) {
+        $sortKey[$id] = '{0:D10}|{1}' -f [int](Get-Prop -Object $index[$id] -Name 'number' -Default 0), $id
+        $inDegree[$id] = 0
+        $dependents[$id] = @()
+    }
+
+    foreach ($id in $inScope) {
+        foreach ($blocker in (Get-Array -Value (Get-Prop -Object $index[$id] -Name 'blockedBy'))) {
+            $blockerId = [string]$blocker
+            if ($inDegree.ContainsKey($blockerId)) {
+                $inDegree[$id] = $inDegree[$id] + 1
+                $dependents[$blockerId] += $id
+            }
+        }
+    }
+
+    $ready = @($inScope | Where-Object { $inDegree[$_] -eq 0 })
+    $order = @()
+
+    while ($ready.Count -gt 0) {
+        $ready = @($ready | Sort-Object { $sortKey[$_] })
+        $current = $ready[0]
+        $ready = @($ready | Where-Object { $_ -ne $current })
+        $order += $current
+
+        foreach ($dependent in (Get-Array -Value $dependents[$current])) {
+            $inDegree[$dependent] = $inDegree[$dependent] - 1
+            if ($inDegree[$dependent] -eq 0) { $ready += $dependent }
+        }
+    }
+
+    $cycle = @($inScope | Where-Object { $order -notcontains $_ })
+
+    return [pscustomobject]@{
+        Order = $order
+        Cycle = $cycle
+        Index = $index
+    }
+}
