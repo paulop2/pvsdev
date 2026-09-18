@@ -31,12 +31,6 @@ export default function FirstPost() {
         </a>
 
         <a className={styles.card}>
-          <Link href="/three/birds" >
-            <h3> Birds </h3>
-          </Link>
-        </a>
-
-        <a className={styles.card}>
           <Link href="/posts/art" >
             <h3> Clique aqui </h3>
           </Link>
