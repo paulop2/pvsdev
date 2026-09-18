@@ -86,6 +86,9 @@ function Invoke-UpdateBranchAction {
     $number = [int](Get-Prop -Object $Issue -Name 'Number')
     $prNumber = Get-Prop -Object $Issue -Name 'PrNumber'
     $result = & $Io.UpdateBranch -Repository $repository -Number ([int]$prNumber) -Base ([string](Get-Prop -Object $Policy -Name 'defaultBranch'))
+    if (-not [bool](Get-Prop -Object $result -Name 'updated' -Default $false) -and -not [bool](Get-Prop -Object $result -Name 'conflict' -Default $false)) {
+        return @("issue ${number}: worktree ausente para atualizar a branch")
+    }
 
     $record = & $Io.ReadAttempt -Repository $repository -Issue $number
     if ($null -ne $record) {

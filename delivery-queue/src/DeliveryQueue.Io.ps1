@@ -207,7 +207,19 @@ function New-DeliveryQueueIoAdapter {
     $adapter | Add-Member NoteProperty UpdateBranch ({
         param($Repository, $Number, $Base)
         & $invokeGitIn -WorkingDirectory (Get-Location).Path -Arguments @('fetch', 'origin', $Base) | Out-Null
-        $result = & $InvokeProcess -FilePath 'git' -Arguments @('merge', "origin/$Base", '--no-edit') -WorkingDirectory (Get-Location).Path -TimeoutSeconds 0
+        $pr = & $invokeGhJson -Arguments @('pr', 'view', [string]$Number, '--repo', $Repository, '--json', 'headRefName')
+        $headBranch = [string](& $getProp -Object $pr -Name 'headRefName')
+        $porcelain = & $invokeGitIn -WorkingDirectory (Get-Location).Path -Arguments @('worktree', 'list', '--porcelain')
+        $worktreePath = $null
+        $currentPath = $null
+        foreach ($line in @($porcelain -split "`r?`n")) {
+            if ($line -match '^worktree (?<path>.+)$') { $currentPath = $Matches['path']; continue }
+            if ($line -match '^branch refs/heads/(?<name>.+)$' -and $Matches['name'] -eq $headBranch) { $worktreePath = $currentPath }
+        }
+        if ([string]::IsNullOrWhiteSpace([string]$worktreePath)) {
+            return [pscustomobject]@{ updated = $false; conflict = $false; reason = 'worktree_ausente' }
+        }
+        $result = & $InvokeProcess -FilePath 'git' -Arguments @('merge', "origin/$Base", '--no-edit') -WorkingDirectory $worktreePath -TimeoutSeconds 0
         return [pscustomobject]@{ updated = ($result.exitCode -eq 0); conflict = ($result.exitCode -ne 0) }
     }.GetNewClosure())
 
