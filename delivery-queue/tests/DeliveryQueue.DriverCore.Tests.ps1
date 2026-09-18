@@ -76,6 +76,22 @@ Describe 'Select-DeliveryAction' {
         $plan = New-Plan @((New-PlanIssue -IssueId 'o/r#1' -Number 1 -Status 'excluded' -NextAction 'reconcile'))
         (Select-DeliveryAction -Plan $plan).Kind | Should -Be 'none'
     }
+    It 'ignora merge ja tratado presente em Handled' {
+        $plan = New-Plan @((New-PlanIssue -IssueId 'o/r#1' -Number 1 -Status 'in_progress' -NextAction 'merge'))
+        (Select-DeliveryAction -Plan $plan -Handled @('o/r#1')).Kind | Should -Be 'none'
+    }
+    It 'ignora reconcile ja tratado presente em Handled' {
+        $plan = New-Plan @((New-PlanIssue -IssueId 'o/r#1' -Number 1 -Status 'in_progress' -Reason 'merge_pending' -NextAction 'reconcile'))
+        (Select-DeliveryAction -Plan $plan -Handled @('o/r#1')).Kind | Should -Be 'none'
+    }
+    It 'ignora update_branch ja tratado presente em Handled' {
+        $plan = New-Plan @((New-PlanIssue -IssueId 'o/r#1' -Number 1 -Status 'in_progress' -NextAction 'update_branch'))
+        (Select-DeliveryAction -Plan $plan -Handled @('o/r#1')).Kind | Should -Be 'none'
+    }
+    It 'nao ignora dispatch presente em Handled' {
+        $plan = New-Plan @((New-PlanIssue -IssueId 'o/r#1' -Number 1 -Status 'runnable' -NextAction 'implement'))
+        (Select-DeliveryAction -Plan $plan -Handled @('o/r#1')).Kind | Should -Be 'dispatch'
+    }
 }
 
 Describe 'New-DeliverySummary e Get-DeliveryExitCode' {

@@ -42,7 +42,8 @@ function Select-DeliveryAction {
         [Parameter(Mandatory)] [object]$Plan,
         [AllowEmptyCollection()] [int[]]$Attempted = @(),
         [int]$MaxIssues = 0,
-        [bool]$HasLimit = $false
+        [bool]$HasLimit = $false,
+        [AllowEmptyCollection()] [string[]]$Handled = @()
     )
 
     $issues = Get-Array -Value (Get-Prop -Object $Plan -Name 'Issues')
@@ -51,16 +52,19 @@ function Select-DeliveryAction {
         $action = [string](Get-Prop -Object $issue -Name 'NextAction')
         $status = [string](Get-Prop -Object $issue -Name 'Status')
         if ($action -eq 'reconcile' -and $status -notin @('done', 'excluded')) {
+            if ($Handled -contains [string](Get-Prop -Object $issue -Name 'IssueId')) { continue }
             return [pscustomobject]@{ Kind = 'recover'; Issue = $issue }
         }
     }
     foreach ($issue in $issues) {
         if ([string](Get-Prop -Object $issue -Name 'NextAction') -eq 'update_branch') {
+            if ($Handled -contains [string](Get-Prop -Object $issue -Name 'IssueId')) { continue }
             return [pscustomobject]@{ Kind = 'update_branch'; Issue = $issue }
         }
     }
     foreach ($issue in $issues) {
         if ([string](Get-Prop -Object $issue -Name 'NextAction') -eq 'merge') {
+            if ($Handled -contains [string](Get-Prop -Object $issue -Name 'IssueId')) { continue }
             return [pscustomobject]@{ Kind = 'merge'; Issue = $issue }
         }
     }

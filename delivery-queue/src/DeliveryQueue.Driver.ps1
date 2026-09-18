@@ -47,6 +47,8 @@ function Invoke-RecoverAction {
 
     if ([string](Get-Prop -Object $pr -Name 'state') -eq 'MERGED') {
         $merge = Get-Prop -Object $Policy -Name 'merge'
+        $record.status = 'merged'
+        $record.reason = $null
         if ([bool](Get-Prop -Object $merge -Name 'verifyDefaultBranchAfterMerge' -Default $false)) {
             $existing = Get-Prop -Object $record -Name 'postMerge'
             $currentHead = & $Io.GetDefaultHead -Repository $repository -Branch ([string](Get-Prop -Object $Policy -Name 'defaultBranch'))
@@ -55,10 +57,16 @@ function Invoke-RecoverAction {
                 $checked = & $Io.VerifyPostMerge -Repository $repository -Branch ([string](Get-Prop -Object $Policy -Name 'defaultBranch')) -Commands (Get-Array -Value (Get-Prop -Object $Policy -Name 'requiredChecks'))
                 $record.postMerge = $checked
             }
+            if ([string](Get-Prop -Object (Get-Prop -Object $record -Name 'postMerge') -Name 'result') -ne 'pass') {
+                $record.status = 'failed'
+                $record.reason = 'post_merge_red'
+            }
         }
-        $record.status = 'merged'
         $record.updatedAt = & $Io.GetNow
         & $Io.UpsertAttempt -Repository $repository -Issue $number -Record $record | Out-Null
+        if ($record.status -eq 'failed') {
+            return @("issue ${number}: pos-merge vermelho, loop encerra em failed")
+        }
         return @("issue ${number}: merge reconciliado")
     }
 
@@ -211,6 +219,7 @@ function Invoke-DeliveryLoop {
     )
 
     $attempted = @()
+    $handled = @()
     $messages = @()
     $infra = $false
     $cancelled = $false
@@ -299,15 +308,24 @@ function Invoke-DeliveryLoop {
 
             $maxIssues = 0
             if ($null -ne (Get-Prop -Object $Options -Name 'MaxIssues')) { $maxIssues = [int]$Options.MaxIssues }
-            $action = Select-DeliveryAction -Plan $plan -Attempted $attempted -MaxIssues $maxIssues -HasLimit ([bool](Get-Prop -Object $Options -Name 'HasLimit' -Default $false))
+            $action = Select-DeliveryAction -Plan $plan -Attempted $attempted -MaxIssues $maxIssues -HasLimit ([bool](Get-Prop -Object $Options -Name 'HasLimit' -Default $false)) -Handled $handled
 
             if ($action.Kind -eq 'none') { break }
             if ($action.Kind -eq 'limit') { $limit = $true; break }
 
             switch ($action.Kind) {
-                'recover' { $messages += Invoke-RecoverAction -Io $Io -Policy $Policy -Options $Options -Issue $action.Issue }
-                'update_branch' { $messages += Invoke-UpdateBranchAction -Io $Io -Policy $Policy -Options $Options -Issue $action.Issue }
-                'merge' { $messages += Invoke-MergeAction -Io $Io -Policy $Policy -Options $Options -Issue $action.Issue }
+                'recover' {
+                    $messages += Invoke-RecoverAction -Io $Io -Policy $Policy -Options $Options -Issue $action.Issue
+                    $handled += [string](Get-Prop -Object $action.Issue -Name 'IssueId')
+                }
+                'update_branch' {
+                    $messages += Invoke-UpdateBranchAction -Io $Io -Policy $Policy -Options $Options -Issue $action.Issue
+                    $handled += [string](Get-Prop -Object $action.Issue -Name 'IssueId')
+                }
+                'merge' {
+                    $messages += Invoke-MergeAction -Io $Io -Policy $Policy -Options $Options -Issue $action.Issue
+                    $handled += [string](Get-Prop -Object $action.Issue -Name 'IssueId')
+                }
                 'dispatch' {
                     $suffix++
                     $attempted += [int](Get-Prop -Object $action.Issue -Name 'Number')

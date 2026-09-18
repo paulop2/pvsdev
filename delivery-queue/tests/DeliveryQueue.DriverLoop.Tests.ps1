@@ -134,4 +134,29 @@ Describe 'Invoke-DeliveryLoop' {
         $collectCount.Value | Should -Be 3
         (Get-DeliveryExitCode -Summary $summary) | Should -Be 4
     }
+
+    It 'encerra apos duas coletas quando acao nao-dispatch nao progridue' {
+        $policy = New-TestPolicy -MergeMode 'auto'
+        $pr = [pscustomobject]@{ number = 7; url = 'u'; state = 'OPEN'; isDraft = $false; baseRefName = 'master'; headRefName = 'feat/1'; headSha = 'h1'; hasConflict = $false; checks = @(); checksKnown = $true }
+        $record = [pscustomobject]@{
+            attemptId = 'a1'; repository = 'o/r'; epic = 9; issue = 1; branch = 'feat/1-x'
+            status = 'delivered'; updatedAt = '2026-09-18T14:22:00Z'
+            merge = [pscustomobject]@{ mergeCommit = 'deadbeef' }
+        }
+        $comment = ConvertTo-AttemptComment -Record $record
+        $gh = New-GhFake `
+            -GetSubIssues { param($Repository, $Epic) @([pscustomobject]@{ number = 1; nodeId = 'n1'; title = 'A'; state = 'OPEN'; stateReason = $null; labels = @(); blockedBy = @() }) } `
+            -GetIssueComments ({ param($Repository, $Issue) @($comment) }.GetNewClosure()) `
+            -GetIssuePrs ({ param($Repository, $Issue) @($pr) }.GetNewClosure())
+        $snapshot = (New-QueueSnapshot -Repository 'o/r' -Epic 9 -Policy $policy -Gh $gh).Snapshot
+        $collectCount = [ref]0
+        $io = New-IoFake `
+            -Collect ({ param($Repository, $Epic, $Only) $collectCount.Value++; $snapshot }.GetNewClosure()) `
+            -ReadAttempt ({ param($Repository, $Issue) $record }.GetNewClosure())
+
+        $summary = Invoke-DeliveryLoop -Policy $policy -Options (New-Options -Policy $policy) -Io $io
+
+        $collectCount.Value | Should -Be 2
+        (Get-DeliveryExitCode -Summary $summary) | Should -Be 2
+    }
 }
