@@ -1,0 +1,48 @@
+name: Task
+description: Registre um trabalho técnico pequeno e verificável.
+labels:
+  - task
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Crie esta task como sub-issue nativa da epic correspondente.
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objetivo
+      description: Qual resultado técnico concreto deve ser produzido?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critérios de aceite
+      placeholder: "- [ ] Resultado verificável"
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Fora do escopo
+      placeholder: Limites desta task.
+    validations:
+      required: true
+  - type: textarea
+    id: approach
+    attributes:
+      label: Notas de implementação
+  - type: textarea
+    id: verification
+    attributes:
+      label: Plano de verificação
+      placeholder: Comandos, testes e evidências esperadas.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependências
+      placeholder: Issues bloqueadoras ou "Nenhuma".
+    validations:
+      required: true
