@@ -1,0 +1,21 @@
+{
+  "$schema": "delivery-queue/schema/policy-v1.json",
+  "version": 1,
+  "repository": "paulop2/pvsdev",
+  "mergeMode": "human",
+  "defaultBranch": "master",
+  "project": null,
+  "fallbackEligibility": "label:delivery-queue-ready",
+  "requiredChecks": ["npm run typecheck", "npm run build"],
+  "requiredRemoteChecks": [],
+  "merge": {
+    "method": "merge",
+    "requireChecksOnPr": true,
+    "verifyDefaultBranchAfterMerge": true,
+    "authorizedByLocalRules": false,
+    "allowAdminBypass": false
+  },
+  "completionWithoutCode": "requires-evidence",
+  "workerTimeoutMinutes": 60,
+  "worktreeRoot": ".."
+}
