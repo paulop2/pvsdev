@@ -77,6 +77,20 @@ Describe 'Get-IssueCompletion' {
         $result.Reason | Should -Be 'parent_unverified'
     }
 
+    It 'bloqueia quando o postMerge pass nao traz baseSha' {
+        $attempt = [pscustomobject]@{ postMerge = [pscustomobject]@{ result = 'pass' } }
+        $result = Get-IssueCompletion -Node (New-ClosedNode -Number 1 -Attempt $attempt) -Policy $policyVerify -DefaultHeadSha 'abc'
+        $result.Status | Should -Be 'blocked'
+        $result.Reason | Should -Be 'parent_unverified'
+    }
+
+    It 'bloqueia quando o head atual e desconhecido mesmo com postMerge pass' {
+        $attempt = [pscustomobject]@{ postMerge = [pscustomobject]@{ result = 'pass'; baseSha = 'abc' } }
+        $result = Get-IssueCompletion -Node (New-ClosedNode -Number 1 -Attempt $attempt) -Policy $policyVerify -DefaultHeadSha $null
+        $result.Status | Should -Be 'blocked'
+        $result.Reason | Should -Be 'parent_unverified'
+    }
+
     It 'marca not planned como excluido, nao como concluido' {
         $result = Get-IssueCompletion -Node (New-ClosedNode -Number 1 -StateReason 'NOT_PLANNED') -Policy $policyVerify -DefaultHeadSha 'abc'
         $result.Status | Should -Be 'excluded'

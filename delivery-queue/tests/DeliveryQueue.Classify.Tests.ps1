@@ -67,6 +67,22 @@ Describe 'Get-IssueStatus' {
         $r.NextAction | Should -Be 'reconcile'
     }
 
+    It 'conclui e reconcilia issue com PR ja mergeada e verificacao pos-merge pass' {
+        $attempt = [pscustomobject]@{ postMerge = [pscustomobject]@{ result = 'pass'; baseSha = 'abc' } }
+        $node = New-Node -Number 1 -Pr (New-Pr -State 'MERGED') -Attempt $attempt
+        $r = Get-IssueStatus -Node $node -Index @{} -Policy (New-Policy -Verify $true) -DefaultHeadSha 'abc'
+        $r.Status | Should -Be 'done'
+        $r.NextAction | Should -Be 'reconcile'
+    }
+
+    It 'nao conclui PR mergeada sem verificacao pos-merge e pede reconciliacao' {
+        $node = New-Node -Number 1 -Pr (New-Pr -State 'MERGED')
+        $r = Get-IssueStatus -Node $node -Index @{} -Policy (New-Policy -Verify $true) -DefaultHeadSha 'abc'
+        $r.Status | Should -Be 'blocked'
+        $r.Reason | Should -Be 'parent_unverified'
+        $r.NextAction | Should -Be 'reconcile'
+    }
+
     It 'exclui issue fechada como not planned' {
         $node = New-Node -Number 1 -State 'CLOSED' -StateReason 'NOT_PLANNED'
         $r = Get-IssueStatus -Node $node -Index @{} -Policy (New-Policy) -DefaultHeadSha 'abc'

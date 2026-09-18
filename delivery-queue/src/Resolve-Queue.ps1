@@ -23,7 +23,14 @@ catch {
     exit 4
 }
 
-$plan = Resolve-QueuePlan -Snapshot $snapshot -Attempted $Attempted -Retry:$Retry
+try {
+    $plan = Resolve-QueuePlan -Snapshot $snapshot -Attempted $Attempted -Retry:$Retry
+}
+catch {
+    [Console]::Error.WriteLine("snapshot inconsistente: $($_.Exception.Message)")
+    exit 4
+}
+
 $plan | ConvertTo-Json -Depth 20
 
 if ($null -eq $plan.Error) { exit 0 }

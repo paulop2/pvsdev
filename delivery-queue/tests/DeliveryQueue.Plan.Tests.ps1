@@ -88,6 +88,15 @@ Describe 'Resolve-QueuePlan' {
         $plan.Error.Code | Should -Be 'policy_invalid'
     }
 
+    It 'bloqueia quando o defaultBranch da policy diverge do snapshot' {
+        $snapshot = New-CycleSnapshot
+        $snapshot.policy.defaultBranch = 'main'
+        $plan = Resolve-QueuePlan -Snapshot $snapshot
+        $plan.Error.Code | Should -Be 'policy_conflict'
+        ($plan.Error.Messages -join ' ') | Should -Match 'main'
+        ($plan.Error.Messages -join ' ') | Should -Match 'master'
+    }
+
     It 'exclui issue ja tentada nesta execucao' {
         $snapshot = Read-Snapshot 'snapshot-linear.json'
         $plan = Resolve-QueuePlan -Snapshot $snapshot -Attempted @(1)
@@ -109,6 +118,13 @@ Describe 'Resolve-Queue.ps1 (CLI)' {
         (New-CycleSnapshot) | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $path -Encoding UTF8
         & "$PSScriptRoot/../src/Resolve-Queue.ps1" -SnapshotPath $path | Out-Null
         $LASTEXITCODE | Should -Be 3
+    }
+
+    It 'retorna 2 para policy invalida ou em conflito' {
+        $path = Join-Path ([System.IO.Path]::GetTempPath()) 'policy-conflict-snapshot.json'
+        (New-AutoWithoutAttestationSnapshot) | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $path -Encoding UTF8
+        & "$PSScriptRoot/../src/Resolve-Queue.ps1" -SnapshotPath $path | Out-Null
+        $LASTEXITCODE | Should -Be 2
     }
 
     It 'retorna 4 para snapshot inexistente' {

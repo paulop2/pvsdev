@@ -40,6 +40,19 @@ Describe 'Get-NodeIndex' {
         $index = Get-NodeIndex -Snapshot (New-TestSnapshot -Issues @($node))
         $index.ContainsKey('o/r#7') | Should -BeTrue
     }
+
+    It 'não fabrica o/r#0 nem descarta nó sem id e sem número' {
+        $node = [pscustomobject]@{ inScope = $true; blockedBy = @() }
+        $index = Get-NodeIndex -Snapshot (New-TestSnapshot -Issues @($node))
+        $index.Count | Should -Be 1
+        $index.ContainsKey('o/r#0') | Should -BeFalse
+        Get-Prop -Object ($index.Values | Select-Object -First 1) -Name 'unknown' -Default $false | Should -BeTrue
+    }
+
+    It 'detecta ids duplicados em vez de sobrescrever em silêncio' {
+        $snapshot = New-TestSnapshot -Issues @((New-TestNode -Number 1), (New-TestNode -Number 1))
+        { Get-NodeIndex -Snapshot $snapshot } | Should -Throw
+    }
 }
 
 Describe 'Get-TopologicalOrder' {

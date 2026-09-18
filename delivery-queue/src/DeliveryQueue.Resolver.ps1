@@ -82,7 +82,22 @@ function Get-NodeIndex {
     foreach ($node in (Get-Array -Value (Get-Prop -Object $Snapshot -Name 'issues'))) {
         $id = [string](Get-Prop -Object $node -Name 'id')
         if ([string]::IsNullOrWhiteSpace($id)) {
-            $id = New-IssueId -Repository $repository -Number ([int](Get-Prop -Object $node -Name 'number'))
+            $number = Get-Prop -Object $node -Name 'number'
+            if ($null -ne $number -and [int]$number -gt 0) {
+                $id = New-IssueId -Repository $repository -Number ([int]$number)
+            }
+            else {
+                $id = "$repository#unknown-$($index.Count)"
+                if ($null -eq $node.PSObject.Properties['unknown']) {
+                    $node | Add-Member -NotePropertyName 'unknown' -NotePropertyValue $true
+                }
+                else {
+                    $node.unknown = $true
+                }
+            }
+        }
+        if ($index.ContainsKey($id)) {
+            throw "id duplicado no snapshot: $id"
         }
         $index[$id] = $node
     }
@@ -174,7 +189,11 @@ function Get-IssueCompletion {
         $postMerge = Get-Prop -Object $attempt -Name 'postMerge'
         $result = [string](Get-Prop -Object $postMerge -Name 'result')
         $baseSha = [string](Get-Prop -Object $postMerge -Name 'baseSha')
-        if ($result -ne 'pass' -or $baseSha -ne $DefaultHeadSha) {
+        $currentHead = [string]$DefaultHeadSha
+        if ($result -ne 'pass' -or
+            [string]::IsNullOrWhiteSpace($baseSha) -or
+            [string]::IsNullOrWhiteSpace($currentHead) -or
+            $baseSha -ne $currentHead) {
             return [pscustomobject]@{ Status = 'blocked'; Reason = 'parent_unverified' }
         }
     }
@@ -274,6 +293,14 @@ function Get-IssueStatus {
         return New-IssueStatusResult -Status $completion.Status -Reason $completion.Reason -NextAction 'none'
     }
 
+    if ($null -ne $pr -and [string](Get-Prop -Object $pr -Name 'state') -eq 'MERGED') {
+        $completion = Get-IssueCompletion -Node $Node -Policy $Policy -DefaultHeadSha $DefaultHeadSha
+        if ($completion.Status -eq 'done') {
+            return New-IssueStatusResult -Status 'done' -Reason $null -NextAction 'reconcile'
+        }
+        return New-IssueStatusResult -Status $completion.Status -Reason $completion.Reason -NextAction 'reconcile'
+    }
+
     if ([bool](Get-Prop -Object $Node -Name 'ambiguousPr' -Default $false)) {
         return New-IssueStatusResult -Status 'blocked' -Reason 'ambiguous_pr' -NextAction 'stop'
     }
@@ -365,6 +392,14 @@ function Resolve-QueuePlan {
 
     $policyProblems = @()
     $policyProblems += Test-DeliveryQueuePolicy -Policy $policy
+
+    $policyDefaultBranch = [string](Get-Prop -Object $policy -Name 'defaultBranch')
+    if (-not [string]::IsNullOrWhiteSpace($policyDefaultBranch) -and
+        -not [string]::IsNullOrWhiteSpace($defaultBranchName) -and
+        $policyDefaultBranch -ne $defaultBranchName) {
+        $policyProblems += "policy_conflict: defaultBranch da policy '$policyDefaultBranch' difere do defaultBranch do snapshot '$defaultBranchName'"
+    }
+
     if ($policyProblems.Count -gt 0) {
         return New-PlanResult -ErrorCode (Get-PolicyErrorCode -Problems $policyProblems) -Repository $repository `
             -Epic $epicNumber -DefaultBranchName $defaultBranchName -DefaultHeadSha $defaultHeadSha -Messages $policyProblems
