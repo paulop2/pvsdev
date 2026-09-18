@@ -177,3 +177,101 @@ function Get-BranchSlug {
     if ($slug.Length -gt 40) { $slug = $slug.Substring(0, 40).Trim('-') }
     return $slug
 }
+
+function Test-LocalEvidenceContract {
+    [CmdletBinding()]
+    param(
+        [AllowEmptyCollection()] [object[]]$Evidence = @(),
+        [Parameter(Mandatory)] [object]$Policy,
+        [AllowNull()] [string]$HeadSha
+    )
+
+    $current = [string]$HeadSha
+    if ([string]::IsNullOrWhiteSpace($current)) { return $false }
+
+    $required = Get-Array -Value (Get-Prop -Object $Policy -Name 'requiredChecks')
+
+    foreach ($command in $required) {
+        $found = $false
+        foreach ($item in @($Evidence)) {
+            if ([string](Get-Prop -Object $item -Name 'command') -ne [string]$command) { continue }
+            if ([string](Get-Prop -Object $item -Name 'result') -ne 'pass') { continue }
+            if ([string](Get-Prop -Object $item -Name 'headSha') -ne $current) { continue }
+            if ([string]::IsNullOrWhiteSpace([string](Get-Prop -Object $item -Name 'at'))) { continue }
+            $found = $true
+            break
+        }
+        if (-not $found) { return $false }
+    }
+
+    return $true
+}
+
+function Test-ReviewContract {
+    [CmdletBinding()]
+    param(
+        [AllowNull()] [object]$Attempt,
+        [AllowNull()] [string]$HeadSha
+    )
+
+    $review = Get-Prop -Object $Attempt -Name 'review'
+    if ($null -eq $review) { return $false }
+
+    $iterations = [int](Get-Prop -Object $review -Name 'iterations' -Default 0)
+    if ($iterations -lt 1 -or $iterations -gt 3) { return $false }
+
+    if ([int](Get-Prop -Object $review -Name 'blocking' -Default 1) -ne 0) { return $false }
+
+    $reviewSha = [string](Get-Prop -Object $review -Name 'headSha')
+    if ([string]::IsNullOrWhiteSpace($reviewSha)) { return $false }
+    if ($reviewSha -ne [string]$HeadSha) { return $false }
+
+    return $true
+}
+
+function Test-HandoffContract {
+    [CmdletBinding()]
+    param([AllowNull()] [object]$Attempt)
+
+    if ($null -eq $Attempt) { return $false }
+
+    if ([string](Get-Prop -Object $Attempt -Name 'status') -notin @('delivered', 'merged')) { return $false }
+
+    foreach ($field in @('attemptId', 'repository', 'issue', 'branch')) {
+        if ([string]::IsNullOrWhiteSpace([string](Get-Prop -Object $Attempt -Name $field))) { return $false }
+    }
+
+    return $true
+}
+
+function Test-MergeReadiness {
+    [CmdletBinding()]
+    param(
+        [AllowNull()] [object]$Pr,
+        [AllowNull()] [object]$Attempt,
+        [Parameter(Mandatory)] [object]$Policy,
+        [AllowNull()] [string]$HeadSha
+    )
+
+    $reasons = @()
+
+    if ($null -eq $Pr) {
+        $reasons += 'sem_pr'
+    }
+    else {
+        if ([string](Get-Prop -Object $Pr -Name 'state') -ne 'OPEN') { $reasons += 'pr_nao_aberta' }
+        if ([bool](Get-Prop -Object $Pr -Name 'isDraft' -Default $false)) { $reasons += 'draft' }
+        if ([bool](Get-Prop -Object $Pr -Name 'hasConflict' -Default $false)) { $reasons += 'conflito' }
+        if ([bool](Get-Prop -Object $Pr -Name 'checksComplete' -Default $false) -ne $true) { $reasons += 'checks_remotos' }
+        if ([string](Get-Prop -Object $Pr -Name 'headSha') -ne [string]$HeadSha) { $reasons += 'head_divergente' }
+    }
+
+    $evidence = Get-Array -Value (Get-Prop -Object $Attempt -Name 'checks')
+    if (-not (Test-LocalEvidenceContract -Evidence $evidence -Policy $Policy -HeadSha $HeadSha)) {
+        $reasons += 'evidencia_local'
+    }
+    if (-not (Test-ReviewContract -Attempt $Attempt -HeadSha $HeadSha)) { $reasons += 'review' }
+    if (-not (Test-HandoffContract -Attempt $Attempt)) { $reasons += 'handoff' }
+
+    return [pscustomobject]@{ Ready = ($reasons.Count -eq 0); Reasons = $reasons }
+}
