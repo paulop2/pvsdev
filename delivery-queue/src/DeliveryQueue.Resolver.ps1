@@ -145,3 +145,91 @@ function Get-TopologicalOrder {
         Index = $index
     }
 }
+
+function Get-IssueCompletion {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [object]$Node,
+        [Parameter(Mandatory)] [object]$Policy,
+        [AllowNull()] [string]$DefaultHeadSha
+    )
+
+    if ([string](Get-Prop -Object $Node -Name 'stateReason') -eq 'NOT_PLANNED') {
+        return [pscustomobject]@{ Status = 'excluded'; Reason = 'closed_not_planned' }
+    }
+
+    $attempt = Get-Prop -Object $Node -Name 'attempt'
+    $hasCode = [bool](Get-Prop -Object $Node -Name 'hasCode' -Default $true)
+    $completionMode = [string](Get-Prop -Object $Policy -Name 'completionWithoutCode')
+
+    if (-not $hasCode -and $completionMode -eq 'requires-evidence') {
+        $evidence = Get-Array -Value (Get-Prop -Object $attempt -Name 'evidence')
+        if ($evidence.Count -eq 0) {
+            return [pscustomobject]@{ Status = 'blocked'; Reason = 'needs_manual' }
+        }
+    }
+
+    $merge = Get-Prop -Object $Policy -Name 'merge'
+    if ([bool](Get-Prop -Object $merge -Name 'verifyDefaultBranchAfterMerge' -Default $false)) {
+        $postMerge = Get-Prop -Object $attempt -Name 'postMerge'
+        $result = [string](Get-Prop -Object $postMerge -Name 'result')
+        $baseSha = [string](Get-Prop -Object $postMerge -Name 'baseSha')
+        if ($result -ne 'pass' -or $baseSha -ne $DefaultHeadSha) {
+            return [pscustomobject]@{ Status = 'blocked'; Reason = 'parent_unverified' }
+        }
+    }
+
+    return [pscustomobject]@{ Status = 'done'; Reason = $null }
+}
+
+function Get-BlockerReason {
+    [CmdletBinding()]
+    param(
+        [AllowEmptyCollection()] [string[]]$BlockerIds = @(),
+        [Parameter(Mandatory)] [hashtable]$Index,
+        [Parameter(Mandatory)] [object]$Policy,
+        [AllowNull()] [string]$DefaultHeadSha
+    )
+
+    $precedence = @{
+        infra             = 5
+        needs_manual      = 4
+        parent_failed     = 3
+        parent_unverified = 2
+        blocked_by_issue  = 1
+    }
+
+    $worst = $null
+
+    foreach ($blockerId in @($BlockerIds)) {
+        if (-not $Index.ContainsKey($blockerId)) {
+            $reason = 'infra'
+        }
+        else {
+            $blocker = $Index[$blockerId]
+            if ([string](Get-Prop -Object $blocker -Name 'state') -eq 'CLOSED') {
+                $completion = Get-IssueCompletion -Node $blocker -Policy $Policy -DefaultHeadSha $DefaultHeadSha
+                if ($completion.Status -eq 'done') {
+                    $reason = $null
+                }
+                elseif ($completion.Reason -eq 'closed_not_planned' -or $completion.Reason -eq 'needs_manual') {
+                    $reason = 'needs_manual'
+                }
+                else {
+                    $reason = 'parent_unverified'
+                }
+            }
+            else {
+                $attemptStatus = [string](Get-Prop -Object (Get-Prop -Object $blocker -Name 'attempt') -Name 'status')
+                if ($attemptStatus -eq 'failed') { $reason = 'parent_failed' }
+                else { $reason = 'blocked_by_issue' }
+            }
+        }
+
+        if ($null -ne $reason) {
+            if ($null -eq $worst -or $precedence[$reason] -gt $precedence[$worst]) { $worst = $reason }
+        }
+    }
+
+    return $worst
+}
