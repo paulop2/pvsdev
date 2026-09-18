@@ -78,7 +78,7 @@ Describe 'New-DeliveryQueueGhAdapter' {
     It 'le o estado do Project do item da issue' {
         $adapter = New-DeliveryQueueGhAdapter -InvokeGh {
             param($Arguments)
-            return [pscustomobject]@{ items = @([pscustomobject]@{ content = [pscustomobject]@{ number = 42 }; status = 'Ready' }) }
+            return [pscustomobject]@{ items = @([pscustomobject]@{ content = [pscustomobject]@{ number = 42; id = 'n1' }; status = 'Ready' }) }
         }
         $r = & $adapter.GetProjectState -Owner 'o' -Number 5 -NodeId 'n1'
         $r.found | Should -BeTrue

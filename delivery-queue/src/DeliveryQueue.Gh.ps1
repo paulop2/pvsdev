@@ -73,7 +73,7 @@ function New-DeliveryQueueGhAdapter {
         foreach ($item in @($result.items)) {
             $content = & $getProp -Object $item -Name 'content'
             $contentId = [string](& $getProp -Object $content -Name 'id')
-            if ($contentId -eq [string]$NodeId -or [string]::IsNullOrWhiteSpace($contentId)) {
+            if ($contentId -eq [string]$NodeId) {
                 $state = [string](& $getProp -Object $item -Name 'status')
                 if ([string]::IsNullOrWhiteSpace($state)) { $state = [string](& $getProp -Object $item -Name 'Status') }
                 return [pscustomobject]@{ found = $true; state = $state }
