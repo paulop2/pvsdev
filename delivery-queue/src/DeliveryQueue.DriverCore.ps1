@@ -88,7 +88,8 @@ function New-DeliverySummary {
         [bool]$Infra = $false,
         [bool]$Cancelled = $false,
         [bool]$LimitReached = $false,
-        [AllowEmptyCollection()] [string[]]$Messages = @()
+        [AllowEmptyCollection()] [string[]]$Messages = @(),
+        [AllowEmptyCollection()] [string[]]$BlockedExtra = @()
     )
 
     $lines = @()
@@ -124,6 +125,8 @@ function New-DeliverySummary {
         $pr = [string](Get-Prop -Object $issue -Name 'PrNumber')
         $lines += ('{0}: status={1} reason={2} action={3} pr={4}' -f $id, $status, $reason, $action, $pr)
     }
+
+    $blocked += $BlockedExtra.Count
 
     foreach ($message in @($Messages)) { $lines += "nota: $message" }
 
@@ -194,6 +197,7 @@ function Test-LocalEvidenceContract {
     if ([string]::IsNullOrWhiteSpace($current)) { return $false }
 
     $required = Get-Array -Value (Get-Prop -Object $Policy -Name 'requiredChecks')
+    if ($required.Count -eq 0) { return $false }
 
     foreach ($command in $required) {
         $found = $false

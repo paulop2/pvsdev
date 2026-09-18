@@ -60,6 +60,7 @@ function Invoke-RecoverAction {
             if ([string](Get-Prop -Object (Get-Prop -Object $record -Name 'postMerge') -Name 'result') -ne 'pass') {
                 $record.status = 'failed'
                 $record.reason = 'post_merge_red'
+                $script:DeliveryQueueHalt = 'post_merge_red'
             }
         }
         $record.updatedAt = & $Io.GetNow
@@ -129,6 +130,7 @@ function Invoke-MergeAction {
 
     $readiness = Test-MergeReadiness -Pr $pr -Attempt $record -Policy $Policy -HeadSha $headSha
     if (-not $readiness.Ready) {
+        $script:DeliveryQueueMergeRefused = $true
         return @("issue ${number}: gate recusou ($((Get-Array -Value $readiness.Reasons) -join ','))")
     }
 
@@ -155,6 +157,7 @@ function Invoke-MergeAction {
             $postMergeFailed = $true
             $record.status = 'failed'
             $record.reason = 'post_merge_red'
+            $script:DeliveryQueueHalt = 'post_merge_red'
         }
     }
     $record.updatedAt = & $Io.GetNow
@@ -223,12 +226,15 @@ function Invoke-DeliveryLoop {
 
     $attempted = @()
     $handled = @()
+    $blockedExtra = @()
     $messages = @()
     $infra = $false
     $cancelled = $false
     $limit = $false
     $plan = $null
     $lock = $null
+    $script:DeliveryQueueHalt = $null
+    $script:DeliveryQueueMergeRefused = $false
 
     try {
         $preflight = Test-DeliveryQueuePreflight -Policy $Policy -Options $Options -DefaultBranchName $null
@@ -326,14 +332,26 @@ function Invoke-DeliveryLoop {
                     $handled += [string](Get-Prop -Object $action.Issue -Name 'IssueId')
                 }
                 'merge' {
+                    $script:DeliveryQueueMergeRefused = $false
                     $messages += Invoke-MergeAction -Io $Io -Policy $Policy -Options $Options -Issue $action.Issue
                     $handled += [string](Get-Prop -Object $action.Issue -Name 'IssueId')
+                    if ([bool]$script:DeliveryQueueMergeRefused) {
+                        $blockedExtra += [string](Get-Prop -Object $action.Issue -Name 'IssueId')
+                    }
                 }
                 'dispatch' {
                     $suffix++
                     $attempted += [int](Get-Prop -Object $action.Issue -Name 'Number')
                     $messages += Invoke-DispatchAction -Io $Io -Policy $Policy -Options $Options -Issue $action.Issue -Suffix $suffix
                 }
+            }
+            if ($null -ne $script:DeliveryQueueHalt) {
+                if ($null -ne $action.Issue) {
+                    $action.Issue.Status = 'failed'
+                    $action.Issue.Reason = [string]$script:DeliveryQueueHalt
+                    $action.Issue.NextAction = 'stop'
+                }
+                break
             }
         }
     }
@@ -343,7 +361,7 @@ function Invoke-DeliveryLoop {
         }
     }
 
-    $summary = New-DeliverySummary -Plan $plan -Attempted $attempted -Infra $infra -Cancelled $cancelled -LimitReached $limit -Messages $messages
+    $summary = New-DeliverySummary -Plan $plan -Attempted $attempted -Infra $infra -Cancelled $cancelled -LimitReached $limit -Messages $messages -BlockedExtra $blockedExtra
     & $Io.WriteSummary -Text $summary.Text
     return $summary
 }

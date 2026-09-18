@@ -228,8 +228,12 @@ function New-DeliveryQueueIoAdapter {
         $arguments = @('pr', 'merge', [string]$Number, '--repo', $Repository, "--$Method", '--match-head-commit', $HeadSha)
         if ($AllowAdmin) { $arguments += '--admin' }
         $result = & $InvokeProcess -FilePath 'gh' -Arguments $arguments -TimeoutSeconds 300
-        if ($result.exitCode -ne 0) { throw "gh pr merge falhou: $($result.output)" }
-        $view = & $invokeGhJson -Arguments @('pr', 'view', [string]$Number, '--repo', $Repository, '--json', 'state,mergeCommit,mergedAt')
+        try {
+            $view = & $invokeGhJson -Arguments @('pr', 'view', [string]$Number, '--repo', $Repository, '--json', 'state,mergeCommit,mergedAt')
+        }
+        catch {
+            return [pscustomobject]@{ state = 'UNKNOWN'; mergeCommit = ''; mergedAt = '' }
+        }
         return [pscustomobject]@{
             state = [string](& $getProp -Object $view -Name 'state')
             mergeCommit = [string](& $getProp -Object (& $getProp -Object $view -Name 'mergeCommit') -Name 'oid')

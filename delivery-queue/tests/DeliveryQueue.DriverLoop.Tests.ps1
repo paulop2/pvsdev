@@ -74,7 +74,7 @@ Describe 'Invoke-DeliveryLoop' {
 
     It 'mergeia em modo auto com gate verde e roda pos-merge' {
         $policy = New-TestPolicy -MergeMode 'auto' -Verify $true
-        $pr = [pscustomobject]@{ number = 7; url = 'u'; state = 'OPEN'; isDraft = $false; baseRefName = 'master'; headRefName = 'feat/1'; headSha = 'h1'; hasConflict = $false; checks = @(); checksKnown = $true }
+        $pr = [pscustomobject]@{ number = 7; url = 'u'; state = 'OPEN'; isDraft = $false; baseRefName = 'master'; headRefName = 'feat/1'; headSha = 'h1'; hasConflict = $false; checks = @([pscustomobject]@{ context = 'ci'; conclusion = 'SUCCESS' }); checksKnown = $true }
         $record = [pscustomobject]@{
             attemptId = 'a1'; repository = 'o/r'; epic = 9; issue = 1; branch = 'feat/1-x'; status = 'delivered'
             review = [pscustomobject]@{ iterations = 1; blocking = 0; headSha = 'h1' }
@@ -96,6 +96,56 @@ Describe 'Invoke-DeliveryLoop' {
         $mergeCount.Value | Should -Be 1
         $verifyCount.Value | Should -Be 1
         $summary.Failed | Should -Be 0
+    }
+
+    It 'pos-merge vermelho encerra o loop em failed' {
+        $policy = New-TestPolicy -MergeMode 'auto' -Verify $true
+        $pr = [pscustomobject]@{ number = 7; url = 'u'; state = 'OPEN'; isDraft = $false; baseRefName = 'master'; headRefName = 'feat/1'; headSha = 'h1'; hasConflict = $false; checks = @([pscustomobject]@{ context = 'ci'; conclusion = 'SUCCESS' }); checksKnown = $true }
+        $record = [pscustomobject]@{
+            attemptId = 'a1'; repository = 'o/r'; epic = 9; issue = 1; branch = 'feat/1-x'; status = 'delivered'
+            review = [pscustomobject]@{ iterations = 1; blocking = 0; headSha = 'h1' }
+            checks = @([pscustomobject]@{ command = 'npm run build'; result = 'pass'; headSha = 'h1'; at = 't' })
+            pr = 7; headSha = 'h1'
+        }
+        $snapshot = (New-QueueSnapshot -Repository 'o/r' -Epic 9 -Policy $policy -Gh (New-GhFake -GetSubIssues { param($Repository, $Epic) @([pscustomobject]@{ number = 1; nodeId = 'n1'; title = 'A'; state = 'OPEN'; stateReason = $null; labels = @(); blockedBy = @() }) } -GetIssuePrs ({ param($Repository, $Issue) @($pr) }.GetNewClosure()))).Snapshot
+        $snapshots = New-Object System.Collections.Queue
+        $snapshots.Enqueue($snapshot); $snapshots.Enqueue($snapshot)
+        $mergeCount = [ref]0; $verifyCount = [ref]0; $collectCount = [ref]0
+        $io = New-IoFake `
+            -Collect ({ param($Repository, $Epic, $Only) $collectCount.Value++; $snapshots.Dequeue() }.GetNewClosure()) `
+            -ReadAttempt ({ param($Repository, $Issue) $record }.GetNewClosure()) `
+            -MergePr ({ param($Repository, $Number, $Method, $HeadSha, $AllowAdmin) $mergeCount.Value++; [pscustomobject]@{ state = 'MERGED'; mergeCommit = 'm1'; mergedAt = 't' } }.GetNewClosure()) `
+            -VerifyPostMerge ({ param($Repository, $Branch, $Commands) $verifyCount.Value++; [pscustomobject]@{ baseSha = 'base-sha'; result = 'fail'; at = 't' } }.GetNewClosure())
+
+        $summary = Invoke-DeliveryLoop -Policy $policy -Options (New-Options -Policy $policy) -Io $io
+        $mergeCount.Value | Should -Be 1
+        $verifyCount.Value | Should -Be 1
+        $collectCount.Value | Should -Be 1
+        (Get-DeliveryExitCode -Summary $summary) | Should -Be 3
+    }
+
+    It 'gate recusado conta como bloqueado e sai com 2' {
+        $policy = New-TestPolicy -MergeMode 'auto'
+        $pr = [pscustomobject]@{ number = 7; url = 'u'; state = 'OPEN'; isDraft = $false; baseRefName = 'master'; headRefName = 'feat/1'; headSha = 'h1'; hasConflict = $false; checks = @([pscustomobject]@{ context = 'ci'; conclusion = 'SUCCESS' }); checksKnown = $true }
+        $record = [pscustomobject]@{
+            attemptId = 'a1'; repository = 'o/r'; epic = 9; issue = 1; branch = 'feat/1-x'; status = 'delivered'
+            review = [pscustomobject]@{ iterations = 1; blocking = 0; headSha = 'h1' }
+            checks = @([pscustomobject]@{ command = 'npm run build'; result = 'pass'; headSha = 'h1'; at = 't' })
+            pr = 7; headSha = 'h1'
+        }
+        $snapshot = (New-QueueSnapshot -Repository 'o/r' -Epic 9 -Policy $policy -Gh (New-GhFake -GetSubIssues { param($Repository, $Epic) @([pscustomobject]@{ number = 1; nodeId = 'n1'; title = 'A'; state = 'OPEN'; stateReason = $null; labels = @(); blockedBy = @() }) } -GetIssuePrs ({ param($Repository, $Issue) @($pr) }.GetNewClosure()))).Snapshot
+        $snapshots = New-Object System.Collections.Queue
+        $snapshots.Enqueue($snapshot); $snapshots.Enqueue($snapshot)
+        $mergeCount = [ref]0
+        $io = New-IoFake `
+            -Collect ({ param($Repository, $Epic, $Only) $snapshots.Dequeue() }.GetNewClosure()) `
+            -ReadAttempt ({ param($Repository, $Issue) $record }.GetNewClosure()) `
+            -GetPr ({ param($Repository, $Number) [pscustomobject]@{ number = $Number; state = 'OPEN'; isDraft = $false; hasConflict = $true; checksComplete = $true; headSha = 'h1'; url = 'u'; baseRefName = 'master'; headRefName = 'feat/1' } }.GetNewClosure()) `
+            -MergePr ({ param($Repository, $Number, $Method, $HeadSha, $AllowAdmin) $mergeCount.Value++; [pscustomobject]@{ state = 'MERGED'; mergeCommit = 'm1'; mergedAt = 't' } }.GetNewClosure())
+
+        $summary = Invoke-DeliveryLoop -Policy $policy -Options (New-Options -Policy $policy) -Io $io
+        $mergeCount.Value | Should -Be 0
+        (Get-DeliveryExitCode -Summary $summary) | Should -Be 2
     }
 
     It 'lock ocupado encerra como infra sem coletar' {

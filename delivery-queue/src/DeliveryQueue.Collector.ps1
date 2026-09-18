@@ -74,6 +74,8 @@ function Test-RemoteChecksComplete {
         return $true
     }
 
+    if ($byContext.Count -eq 0) { return $false }
+
     foreach ($context in $byContext.Keys) {
         if ($byContext[$context] -notin $accepted) { return $false }
     }
@@ -193,13 +195,16 @@ function New-CollectorIssueNode {
         $blockedBy += [string]$blocker
     }
 
+    $hasCode = [bool](Get-Prop -Object $Raw -Name 'hasCode' -Default $true)
+    if ((Get-CollectorLabels -Issue $Raw) -contains 'no-code') { $hasCode = $false }
+
     return [pscustomobject]@{
         id          = $id
         number      = $number
         title       = [string](Get-Prop -Object $Raw -Name 'title')
         state       = [string](Get-Prop -Object $Raw -Name 'state')
         stateReason = Get-Prop -Object $Raw -Name 'stateReason'
-        hasCode     = [bool](Get-Prop -Object $Raw -Name 'hasCode' -Default $true)
+        hasCode     = $hasCode
         inScope     = $InScope
         eligible    = [bool]$eligibility.Eligible
         unknown     = $unknown

@@ -39,6 +39,11 @@ Describe 'Test-LocalEvidenceContract' {
         $policy.requiredChecks = @('npm run build', 'npm run typecheck')
         (Test-LocalEvidenceContract -Evidence @((New-Evidence -Command 'npm run build')) -Policy $policy -HeadSha 'h1') | Should -BeFalse
     }
+    It 'rejeita requiredChecks vazio mesmo sem evidencia' {
+        $policy = New-TestPolicy
+        $policy.requiredChecks = @()
+        (Test-LocalEvidenceContract -Evidence @() -Policy $policy -HeadSha 'h1') | Should -BeFalse
+    }
 }
 
 Describe 'Test-ReviewContract' {

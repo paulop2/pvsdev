@@ -59,6 +59,10 @@ Describe 'Test-RemoteChecksComplete' {
         (Test-RemoteChecksComplete -Checks $checks -ChecksKnown $true -Policy (New-TestPolicy)) | Should -BeTrue
     }
 
+    It 'rejeita lista vazia de requiredRemoteChecks sem checks conhecidos' {
+        (Test-RemoteChecksComplete -Checks @() -ChecksKnown $true -Policy (New-TestPolicy)) | Should -BeFalse
+    }
+
     It 'rejeita check presente falhando' {
         $checks = @([pscustomobject]@{ context = 'ci'; conclusion = 'FAILURE' })
         (Test-RemoteChecksComplete -Checks $checks -ChecksKnown $true -Policy (New-TestPolicy)) | Should -BeFalse
@@ -217,5 +221,15 @@ Describe 'New-QueueSnapshot' {
         $result.Snapshot.filter.only | Should -Be @(7)
         $plan = Resolve-QueuePlan -Snapshot $result.Snapshot
         ($plan.Issues | Where-Object Number -eq 1).Reason | Should -Be 'filtered'
+    }
+
+    It 'marca hasCode falso quando a label no-code esta presente' {
+        $gh = New-GhFake -GetSubIssues {
+            param($Repository, $Epic)
+            @([pscustomobject]@{ number = 1; nodeId = 'n1'; title = 'A'; state = 'OPEN'; stateReason = $null; labels = @('no-code'); blockedBy = @() })
+        }
+        $result = New-QueueSnapshot -Repository 'o/r' -Epic 9 -Policy (New-TestPolicy) -Gh $gh
+
+        $result.Snapshot.issues[0].hasCode | Should -BeFalse
     }
 }
