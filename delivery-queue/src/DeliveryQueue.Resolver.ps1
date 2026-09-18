@@ -233,3 +233,106 @@ function Get-BlockerReason {
 
     return $worst
 }
+
+function New-IssueStatusResult {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [string]$Status,
+        [AllowNull()] [string]$Reason,
+        [Parameter(Mandatory)] [string]$NextAction
+    )
+
+    return [pscustomobject]@{ Status = $Status; Reason = $Reason; NextAction = $NextAction }
+}
+
+function Get-IssueStatus {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [object]$Node,
+        [Parameter(Mandatory)] [hashtable]$Index,
+        [Parameter(Mandatory)] [object]$Policy,
+        [AllowNull()] [object]$Filter = $null,
+        [AllowEmptyCollection()] [int[]]$Attempted = @(),
+        [bool]$Retry = $false,
+        [AllowNull()] [string]$DefaultHeadSha = $null
+    )
+
+    $number = [int](Get-Prop -Object $Node -Name 'number' -Default 0)
+    $attempt = Get-Prop -Object $Node -Name 'attempt'
+    $pr = Get-Prop -Object $Node -Name 'pr'
+    $mergeMode = [string](Get-Prop -Object $Policy -Name 'mergeMode')
+
+    if ([bool](Get-Prop -Object $Node -Name 'unknown' -Default $false)) {
+        return New-IssueStatusResult -Status 'blocked' -Reason 'infra' -NextAction 'stop'
+    }
+
+    if ([string](Get-Prop -Object $Node -Name 'state') -eq 'CLOSED') {
+        $completion = Get-IssueCompletion -Node $Node -Policy $Policy -DefaultHeadSha $DefaultHeadSha
+        if ($completion.Status -eq 'done') {
+            return New-IssueStatusResult -Status 'done' -Reason $null -NextAction 'reconcile'
+        }
+        return New-IssueStatusResult -Status $completion.Status -Reason $completion.Reason -NextAction 'none'
+    }
+
+    if ([bool](Get-Prop -Object $Node -Name 'ambiguousPr' -Default $false)) {
+        return New-IssueStatusResult -Status 'blocked' -Reason 'ambiguous_pr' -NextAction 'stop'
+    }
+
+    $blockerReason = Get-BlockerReason `
+        -BlockerIds (Get-Array -Value (Get-Prop -Object $Node -Name 'blockedBy')) `
+        -Index $Index -Policy $Policy -DefaultHeadSha $DefaultHeadSha
+    if ($null -ne $blockerReason) {
+        return New-IssueStatusResult -Status 'blocked' -Reason $blockerReason -NextAction 'none'
+    }
+
+    if (-not [bool](Get-Prop -Object $Node -Name 'eligible' -Default $true)) {
+        return New-IssueStatusResult -Status 'excluded' -Reason 'not_eligible' -NextAction 'none'
+    }
+
+    $only = Get-Array -Value (Get-Prop -Object $Filter -Name 'only')
+    if ($only.Count -gt 0 -and ($only -notcontains $number)) {
+        return New-IssueStatusResult -Status 'excluded' -Reason 'filtered' -NextAction 'none'
+    }
+
+    $attemptStatus = [string](Get-Prop -Object $attempt -Name 'status')
+    if ($attemptStatus -in @('failed', 'started') -and -not $Retry) {
+        return New-IssueStatusResult -Status 'failed' -Reason 'needs_manual' -NextAction 'stop'
+    }
+
+    if ($null -ne $pr) {
+        $isDraft = [bool](Get-Prop -Object $pr -Name 'isDraft' -Default $false)
+        $hasConflict = [bool](Get-Prop -Object $pr -Name 'hasConflict' -Default $false)
+        $checksComplete = [bool](Get-Prop -Object $pr -Name 'checksComplete' -Default $false)
+        $review = Get-Prop -Object $attempt -Name 'review'
+        $reviewBlocking = [int](Get-Prop -Object $review -Name 'blocking' -Default 0)
+        $mergeTriggered = $null -ne (Get-Prop -Object $attempt -Name 'merge')
+
+        if ($hasConflict) {
+            return New-IssueStatusResult -Status 'in_progress' -Reason $null -NextAction 'update_branch'
+        }
+
+        if ($mergeTriggered -and [string](Get-Prop -Object $pr -Name 'state') -ne 'MERGED') {
+            return New-IssueStatusResult -Status 'in_progress' -Reason 'merge_pending' -NextAction 'reconcile'
+        }
+
+        $ready = (-not $isDraft) -and $checksComplete -and ($reviewBlocking -eq 0)
+        if ($ready) {
+            if ($mergeMode -eq 'human') {
+                return New-IssueStatusResult -Status 'blocked' -Reason 'awaiting_merge' -NextAction 'wait_merge'
+            }
+            return New-IssueStatusResult -Status 'in_progress' -Reason $null -NextAction 'merge'
+        }
+
+        return New-IssueStatusResult -Status 'in_progress' -Reason 'checks_pending' -NextAction 'wait_checks'
+    }
+
+    if ($Attempted -contains $number) {
+        return New-IssueStatusResult -Status 'excluded' -Reason 'attempted' -NextAction 'none'
+    }
+
+    if ($attemptStatus -in @('started', 'failed')) {
+        return New-IssueStatusResult -Status 'runnable' -Reason $null -NextAction 'resume'
+    }
+
+    return New-IssueStatusResult -Status 'runnable' -Reason $null -NextAction 'implement'
+}
