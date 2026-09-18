@@ -336,3 +336,106 @@ function Get-IssueStatus {
 
     return New-IssueStatusResult -Status 'runnable' -Reason $null -NextAction 'implement'
 }
+
+function Get-PolicyErrorCode {
+    [CmdletBinding()]
+    param([AllowEmptyCollection()] [string[]]$Problems = @())
+
+    foreach ($problem in @($Problems)) {
+        if ($problem -match '^policy_conflict:') { return 'policy_conflict' }
+    }
+    return 'policy_invalid'
+}
+
+function Resolve-QueuePlan {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [object]$Snapshot,
+        [AllowEmptyCollection()] [int[]]$Attempted = @(),
+        [bool]$Retry = $false
+    )
+
+    $repository = [string](Get-Prop -Object $Snapshot -Name 'repository')
+    $epicNumber = Get-Prop -Object (Get-Prop -Object $Snapshot -Name 'epic') -Name 'number'
+    $policy = Get-Prop -Object $Snapshot -Name 'policy'
+    $filter = Get-Prop -Object $Snapshot -Name 'filter'
+    $defaultBranch = Get-Prop -Object $Snapshot -Name 'defaultBranch'
+    $defaultBranchName = [string](Get-Prop -Object $defaultBranch -Name 'name')
+    $defaultHeadSha = [string](Get-Prop -Object $defaultBranch -Name 'headSha')
+
+    $policyProblems = @()
+    $policyProblems += Test-DeliveryQueuePolicy -Policy $policy
+    if ($policyProblems.Count -gt 0) {
+        return New-PlanResult -ErrorCode (Get-PolicyErrorCode -Problems $policyProblems) -Repository $repository `
+            -Epic $epicNumber -DefaultBranchName $defaultBranchName -DefaultHeadSha $defaultHeadSha -Messages $policyProblems
+    }
+
+    $topology = Get-TopologicalOrder -Snapshot $Snapshot
+
+    if ($topology.Cycle.Count -gt 0) {
+        return New-PlanResult -ErrorCode 'dependency_cycle' -Repository $repository -Epic $epicNumber `
+            -DefaultBranchName $defaultBranchName -DefaultHeadSha $defaultHeadSha -Messages @($topology.Cycle)
+    }
+
+    $index = $topology.Index
+    $attemptedNumbers = @()
+    $attemptedNumbers += Get-Array -Value (Get-Prop -Object $Snapshot -Name 'attempted')
+    $attemptedNumbers += Get-Array -Value $Attempted
+    $attemptedNumbers = @($attemptedNumbers | ForEach-Object { [int]$_ })
+    $issues = @()
+
+    foreach ($id in $topology.Order) {
+        $node = $index[$id]
+        $status = Get-IssueStatus -Node $node -Index $index -Policy $policy -Filter $filter `
+            -Attempted $attemptedNumbers -Retry $Retry -DefaultHeadSha $defaultHeadSha
+        $pr = Get-Prop -Object $node -Name 'pr'
+        $attempt = Get-Prop -Object $node -Name 'attempt'
+
+        $issues += [pscustomobject]@{
+            IssueId    = [string]$id
+            Number     = [int](Get-Prop -Object $node -Name 'number' -Default 0)
+            Blockers   = (Get-Array -Value (Get-Prop -Object $node -Name 'blockedBy'))
+            Status     = $status.Status
+            Reason     = $status.Reason
+            NextAction = $status.NextAction
+            PrNumber   = Get-Prop -Object $pr -Name 'number'
+            PrUrl      = Get-Prop -Object $pr -Name 'url'
+            Branch     = [string](Get-Prop -Object $attempt -Name 'branch')
+            AttemptId  = [string](Get-Prop -Object $attempt -Name 'attemptId')
+        }
+    }
+
+    return [pscustomobject]@{
+        Repository    = $repository
+        Epic          = $epicNumber
+        DefaultBranch = [pscustomobject]@{ name = $defaultBranchName; headSha = $defaultHeadSha }
+        Error         = $null
+        Order         = @($topology.Order)
+        Runnable      = @($issues | Where-Object { $_.Status -eq 'runnable' } | ForEach-Object { $_.IssueId })
+        Issues        = $issues
+        Diagnostics   = @()
+    }
+}
+
+function New-PlanResult {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [string]$ErrorCode,
+        [AllowNull()] [string]$Repository,
+        [AllowNull()] [object]$Epic,
+        [AllowNull()] [string]$DefaultBranchName,
+        [AllowNull()] [string]$DefaultHeadSha,
+        [AllowEmptyCollection()] [string[]]$Messages = @()
+    )
+
+    return [pscustomobject]@{
+        Repository    = $Repository
+        Epic          = $Epic
+        DefaultBranch = [pscustomobject]@{ name = $DefaultBranchName; headSha = $DefaultHeadSha }
+        Error         = [pscustomobject]@{ Code = $ErrorCode; Messages = @($Messages) }
+        Order         = @()
+        Runnable      = @()
+        Issues        = @()
+        Diagnostics   = @()
+    }
+}
