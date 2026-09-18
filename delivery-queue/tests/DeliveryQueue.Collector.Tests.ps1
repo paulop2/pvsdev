@@ -119,3 +119,103 @@ Describe 'Select-IssuePr' {
         $r.Pr.checksComplete | Should -BeFalse
     }
 }
+
+Describe 'New-QueueSnapshot' {
+    It 'monta a cadeia linear e o resolver libera so a primeira' {
+        $gh = New-GhFake -GetSubIssues {
+            param($Repository, $Epic)
+            @(
+                [pscustomobject]@{ number = 3; nodeId = 'n3'; title = 'C'; state = 'OPEN'; stateReason = $null; labels = @(); blockedBy = @('o/r#2') },
+                [pscustomobject]@{ number = 1; nodeId = 'n1'; title = 'A'; state = 'OPEN'; stateReason = $null; labels = @(); blockedBy = @() },
+                [pscustomobject]@{ number = 2; nodeId = 'n2'; title = 'B'; state = 'OPEN'; stateReason = $null; labels = @(); blockedBy = @('o/r#1') }
+            )
+        }
+        $result = New-QueueSnapshot -Repository 'o/r' -Epic 9 -Policy (New-TestPolicy) -Gh $gh
+
+        $result.Ok | Should -BeTrue
+        $plan = Resolve-QueuePlan -Snapshot $result.Snapshot
+        $plan.Order | Should -Be @('o/r#1', 'o/r#2', 'o/r#3')
+        $plan.Runnable | Should -Be @('o/r#1')
+    }
+
+    It 'inclui blocker externo fora do escopo como bloqueio' {
+        $gh = New-GhFake `
+            -GetSubIssues { param($Repository, $Epic) @([pscustomobject]@{ number = 2; nodeId = 'n2'; title = 'B'; state = 'OPEN'; stateReason = $null; labels = @(); blockedBy = @('o/r#99') }) } `
+            -GetBlockerIssues { param($Repository, $Ids) @{ 'o/r#99' = [pscustomobject]@{ state = 'OPEN'; stateReason = $null } } }
+        $result = New-QueueSnapshot -Repository 'o/r' -Epic 9 -Policy (New-TestPolicy) -Gh $gh
+
+        $plan = Resolve-QueuePlan -Snapshot $result.Snapshot
+        ($plan.Issues | Where-Object Number -eq 2).Reason | Should -Be 'blocked_by_issue'
+    }
+
+    It 'marca no externo desconhecido quando o blocker nao vem dos dados' {
+        $gh = New-GhFake `
+            -GetSubIssues { param($Repository, $Epic) @([pscustomobject]@{ number = 2; nodeId = 'n2'; title = 'B'; state = 'OPEN'; stateReason = $null; labels = @(); blockedBy = @('o/r#99') }) } `
+            -GetBlockerIssues { param($Repository, $Ids) @{} }
+        $result = New-QueueSnapshot -Repository 'o/r' -Epic 9 -Policy (New-TestPolicy) -Gh $gh
+
+        $external = $result.Snapshot.issues | Where-Object { $_.id -eq 'o/r#99' }
+        $external.unknown | Should -BeTrue
+    }
+
+    It 'falha de coleta nao produz snapshot parcial' {
+        $gh = New-GhFake -GetSubIssues { param($Repository, $Epic) throw 'falha na pagina 2' }
+        $result = New-QueueSnapshot -Repository 'o/r' -Epic 9 -Policy (New-TestPolicy) -Gh $gh
+
+        $result.Ok | Should -BeFalse
+        $result.Error.Code | Should -Be 'infra'
+        $result.Snapshot | Should -BeNullOrEmpty
+    }
+
+    It 'falha ao ler a branch padrao encerra como infra' {
+        $gh = New-GhFake -GetDefaultBranch { param($Repository) throw 'sem auth' }
+        $result = New-QueueSnapshot -Repository 'o/r' -Epic 9 -Policy (New-TestPolicy) -Gh $gh
+        $result.Ok | Should -BeFalse
+        $result.Error.Code | Should -Be 'infra'
+    }
+
+    It 'le o registro de tentativa do comentario' {
+        $gh = New-GhFake `
+            -GetSubIssues { param($Repository, $Epic) @([pscustomobject]@{ number = 1; nodeId = 'n1'; title = 'A'; state = 'OPEN'; stateReason = $null; labels = @(); blockedBy = @() }) } `
+            -GetIssueComments { param($Repository, $Issue) @((ConvertTo-AttemptComment -Record ([pscustomobject]@{ attemptId = 'att1'; status = 'failed'; updatedAt = '2026-09-18T10:00:00Z' }))) }
+        $result = New-QueueSnapshot -Repository 'o/r' -Epic 9 -Policy (New-TestPolicy) -Gh $gh
+
+        $result.Snapshot.issues[0].attempt.attemptId | Should -Be 'att1'
+        $plan = Resolve-QueuePlan -Snapshot $result.Snapshot
+        ($plan.Issues | Where-Object Number -eq 1).Status | Should -Be 'failed'
+    }
+
+    It 'marca unknown quando a leitura do Project falha' {
+        $gh = New-GhFake `
+            -GetSubIssues { param($Repository, $Epic) @([pscustomobject]@{ number = 1; nodeId = 'n1'; title = 'A'; state = 'OPEN'; stateReason = $null; labels = @(); blockedBy = @() }) } `
+            -GetProjectState { param($Owner, $Number, $NodeId) throw 'project indisponivel' }
+        $result = New-QueueSnapshot -Repository 'o/r' -Epic 9 -Policy (New-TestPolicy) -Gh $gh
+
+        $result.Ok | Should -BeTrue
+        $result.Snapshot.issues[0].unknown | Should -BeTrue
+        $plan = Resolve-QueuePlan -Snapshot $result.Snapshot
+        ($plan.Issues | Where-Object Number -eq 1).Reason | Should -Be 'infra'
+    }
+
+    It 'usa fallback de label quando nao ha Project' {
+        $policy = New-TestPolicy -Project $null -Fallback 'label:agent-ready'
+        $gh = New-GhFake -GetSubIssues {
+            param($Repository, $Epic)
+            @([pscustomobject]@{ number = 1; nodeId = 'n1'; title = 'A'; state = 'OPEN'; stateReason = $null; labels = @('agent-ready'); blockedBy = @() })
+        }
+        $result = New-QueueSnapshot -Repository 'o/r' -Epic 9 -Policy $policy -Gh $gh
+
+        $result.Snapshot.issues[0].eligible | Should -BeTrue
+        $plan = Resolve-QueuePlan -Snapshot $result.Snapshot
+        ($plan.Issues | Where-Object Number -eq 1).Status | Should -Be 'runnable'
+    }
+
+    It 'preserva o filtro -Only no snapshot' {
+        $gh = New-GhFake -GetSubIssues { param($Repository, $Epic) @([pscustomobject]@{ number = 1; nodeId = 'n1'; title = 'A'; state = 'OPEN'; stateReason = $null; labels = @(); blockedBy = @() }) }
+        $result = New-QueueSnapshot -Repository 'o/r' -Epic 9 -Policy (New-TestPolicy) -Gh $gh -Filter ([pscustomobject]@{ only = @(7) })
+
+        $result.Snapshot.filter.only | Should -Be @(7)
+        $plan = Resolve-QueuePlan -Snapshot $result.Snapshot
+        ($plan.Issues | Where-Object Number -eq 1).Reason | Should -Be 'filtered'
+    }
+}
