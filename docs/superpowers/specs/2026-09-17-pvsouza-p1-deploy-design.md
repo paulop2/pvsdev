@@ -1,8 +1,21 @@
 # pvsouza.com — Redesign e plataforma de IA
 
 **Data:** 2026-09-17
-**Status:** aprovado (design do P1), pronto para plano
+**Status:** P0 e P1 concluídos; P2–P5 pendentes
 **Repo:** `paulop2/pvsdev` (`C:\Users\PVS\projetos\pvsdev`)
+
+## Estado da execução
+
+- **P0 — Processo:** concluído (templates de issue, PR template, `AGENTS.md`, `WORKFLOW.md`).
+- **P1 — Deploy/plataforma:** concluído. Site em Next.js 15 (App Router, `output: 'export'`)
+  publicado no Cloudflare Pages (projeto `pvsouza`).
+  - Evidência: `https://pvsouza.com` responde `200` em `/`, `/posts/about-me/`,
+    `/posts/rants/`, `/posts/first-post/`, `/posts/art/`, `/three/boxes/`.
+  - `https://www.pvsouza.com/...` responde `301` para `https://pvsouza.com/...`
+    (path e query preservados).
+  - Verificado com `scripts/smoke.ps1` e `curl.exe`.
+  - Desvio documentado: o demo `birds` foi adiado (follow-up), conforme mitigação da §5.6.
+- **P2–P5:** não iniciados.
 
 ## 1. Contexto
 
