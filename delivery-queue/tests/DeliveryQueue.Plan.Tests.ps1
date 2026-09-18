@@ -127,6 +127,16 @@ Describe 'Resolve-Queue.ps1 (CLI)' {
         $LASTEXITCODE | Should -Be 2
     }
 
+    It 'retorna 2 para policy malformada' {
+        $path = Join-Path ([System.IO.Path]::GetTempPath()) 'policy-invalid-snapshot.json'
+        $snapshot = New-AutoWithoutAttestationSnapshot
+        $snapshot.policy.mergeMode = 'human'
+        $snapshot.policy.version = 7
+        $snapshot | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $path -Encoding UTF8
+        & "$PSScriptRoot/../src/Resolve-Queue.ps1" -SnapshotPath $path | Out-Null
+        $LASTEXITCODE | Should -Be 2
+    }
+
     It 'retorna 4 para snapshot inexistente' {
         & "$PSScriptRoot/../src/Resolve-Queue.ps1" -SnapshotPath "$PSScriptRoot/fixtures/nao-existe.json" | Out-Null
         $LASTEXITCODE | Should -Be 4
