@@ -68,6 +68,14 @@ Describe 'Select-DeliveryAction' {
         $plan = New-Plan @((New-PlanIssue -IssueId 'o/r#1' -Number 1 -Status 'blocked' -Reason 'blocked_by_issue'))
         (Select-DeliveryAction -Plan $plan).Kind | Should -Be 'none'
     }
+    It 'nao recupera issue done com reconcile' {
+        $plan = New-Plan @((New-PlanIssue -IssueId 'o/r#1' -Number 1 -Status 'done' -NextAction 'reconcile'))
+        (Select-DeliveryAction -Plan $plan).Kind | Should -Be 'none'
+    }
+    It 'nao recupera issue excluded com reconcile' {
+        $plan = New-Plan @((New-PlanIssue -IssueId 'o/r#1' -Number 1 -Status 'excluded' -NextAction 'reconcile'))
+        (Select-DeliveryAction -Plan $plan).Kind | Should -Be 'none'
+    }
 }
 
 Describe 'New-DeliverySummary e Get-DeliveryExitCode' {

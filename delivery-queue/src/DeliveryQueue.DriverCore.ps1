@@ -49,7 +49,10 @@ function Select-DeliveryAction {
 
     foreach ($issue in $issues) {
         $action = [string](Get-Prop -Object $issue -Name 'NextAction')
-        if ($action -eq 'reconcile') { return [pscustomobject]@{ Kind = 'recover'; Issue = $issue } }
+        $status = [string](Get-Prop -Object $issue -Name 'Status')
+        if ($action -eq 'reconcile' -and $status -notin @('done', 'excluded')) {
+            return [pscustomobject]@{ Kind = 'recover'; Issue = $issue }
+        }
     }
     foreach ($issue in $issues) {
         if ([string](Get-Prop -Object $issue -Name 'NextAction') -eq 'update_branch') {
