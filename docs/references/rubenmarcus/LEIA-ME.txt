@@ -1,0 +1,10 @@
+Export da home https://www.rubenmarcus.dev/
+Capturado em 2026-09-21.
+
+home.html: HTML original retornado pelo servidor.
+styles.css: todos os blocos <style> extraidos desse HTML, na ordem original.
+index.html: mesmo HTML, com <base> para resolver imagens, fontes, scripts e links no dominio original. Abra este arquivo com conexao a internet; um servidor HTTP local pode ser necessario para scripts de modulo. Restricoes de CORS podem impedir parte das interacoes.
+home.js: script de entrada da home; seus imports continuam dependentes do site original.
+
+Este pacote captura a home, nao todas as rotas. Nao e um espelho offline: fontes, imagens, scripts importados, APIs e recursos WebGL continuam externos. O CSS original ja esta embutido nos arquivos HTML; styles.css e uma copia extraida para consulta. HTML e CSS nao reproduzem sozinhos animacoes controladas por JavaScript ou shaders.
+google-fonts.css: copia da folha CSS externa do Google Fonts; os arquivos de fonte continuam externos.
