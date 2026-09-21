@@ -8,13 +8,20 @@ export interface TurnstileOptions {
 }
 
 export async function verifyTurnstile(options: TurnstileOptions): Promise<boolean> {
-  if (options.secret.trim().length === 0 || options.token.trim().length === 0) {
+  if (
+    typeof options.secret !== 'string' ||
+    options.secret.trim().length === 0 ||
+    typeof options.token !== 'string' ||
+    options.token.trim().length === 0
+  ) {
     return false;
   }
+  const secret = options.secret.trim();
+  const token = options.token.trim();
   const doFetch = options.fetchImpl ?? fetch;
   const body = new URLSearchParams();
-  body.set('secret', options.secret);
-  body.set('response', options.token);
+  body.set('secret', secret);
+  body.set('response', token);
   if (options.ip !== null && options.ip.length > 0) {
     body.set('remoteip', options.ip);
   }

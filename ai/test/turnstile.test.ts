@@ -30,9 +30,34 @@ describe('verifyTurnstile', () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
+  it('rejeita secret indefinido sem lancar e sem chamar fetch', async () => {
+    const fetchImpl = okFetch();
+    const result = await verifyTurnstile({
+      secret: undefined as unknown as string,
+      token: 't',
+      ip: null,
+      fetchImpl,
+    });
+    expect(result).toBe(false);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('rejeita token indefinido sem lancar e sem chamar fetch', async () => {
+    const fetchImpl = okFetch();
+    const result = await verifyTurnstile({
+      secret: 's',
+      token: undefined as unknown as string,
+      ip: null,
+      fetchImpl,
+    });
+    expect(result).toBe(false);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it('rejeita sem token', async () => {
     const fetchImpl = okFetch();
     expect(await verifyTurnstile({ secret: 's', token: '', ip: null, fetchImpl })).toBe(false);
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it('rejeita fail-closed em erro de rede', async () => {

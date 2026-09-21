@@ -17,7 +17,7 @@ export type ValidationResult =
   | { ok: false; error: string };
 
 export function validateChatRequest(body: unknown, config: Config): ValidationResult {
-  if (typeof body !== 'object' || body === null) {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
     return { ok: false, error: 'body must be an object' };
   }
   const record = body as Record<string, unknown>;

@@ -46,6 +46,7 @@ export function estimateTokens(chars: number): number {
 export interface ChatStreamOptions {
   upstream: ReadableStream<Uint8Array>;
   promptChars: number;
+  model: string;
   onUsage: (usage: Usage) => void | Promise<void>;
   onError?: (error: unknown) => void;
 }
@@ -99,7 +100,7 @@ export function toSseStream(options: ChatStreamOptions): ReadableStream<Uint8Arr
           prompt: estimateTokens(options.promptChars),
           completion: estimateTokens(completion.length),
         };
-        controller.enqueue(frame('done', { usage }));
+        controller.enqueue(frame('done', { model: options.model, usage }));
         try {
           await options.onUsage(usage);
         } catch (error) {

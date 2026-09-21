@@ -117,6 +117,7 @@ export function createHandler(deps: HandlerDeps): (request: Request) => Promise<
     const stream = toSseStream({
       upstream,
       promptChars,
+      model: deps.config.model,
       onUsage: (usage: Usage) => deps.addTokens(usage.prompt + usage.completion),
     });
 
@@ -125,7 +126,6 @@ export function createHandler(deps: HandlerDeps): (request: Request) => Promise<
       headers: {
         'content-type': 'text/event-stream; charset=utf-8',
         'cache-control': 'no-cache',
-        connection: 'keep-alive',
         ...cors,
       },
     });

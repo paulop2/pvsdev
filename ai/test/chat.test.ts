@@ -70,12 +70,14 @@ describe('toSseStream', () => {
     const stream = toSseStream({
       upstream: upstreamFrom('data: {"response":"ola"}\ndata: {"response":" mundo"}\ndata: [DONE]\n'),
       promptChars: 8,
+      model: 'test-model',
       onUsage,
     });
     const output = await readAll(stream);
     expect(output).toContain('event: token\ndata: {"delta":"ola"}');
     expect(output).toContain('event: token\ndata: {"delta":" mundo"}');
     expect(output).toContain('event: done');
+    expect(output).toContain('"model":"test-model"');
     expect(output).toContain('"prompt":2');
     expect(output).toContain('"completion":3');
     expect(onUsage).toHaveBeenCalledWith({ prompt: 2, completion: 3 });
@@ -85,6 +87,7 @@ describe('toSseStream', () => {
     const stream = toSseStream({
       upstream: upstreamFrom('data: {"response":"corte"}'),
       promptChars: 4,
+      model: 'test-model',
       onUsage: () => undefined,
     });
     const output = await readAll(stream);
@@ -97,6 +100,7 @@ describe('toSseStream', () => {
     const stream = toSseStream({
       upstream: upstreamChunks('data: {"res', 'ponse":"ola"}\ndata: [DONE]\n'),
       promptChars: 4,
+      model: 'test-model',
       onUsage,
     });
     const output = await readAll(stream);
@@ -110,6 +114,7 @@ describe('toSseStream', () => {
     const stream = toSseStream({
       upstream: upstreamFrom('data: {"response":"ola"}\ndata: [DONE]\n'),
       promptChars: 4,
+      model: 'test-model',
       onUsage,
       onError,
     });
@@ -125,6 +130,7 @@ describe('toSseStream', () => {
     const stream = toSseStream({
       upstream: upstreamFrom('data: {"response":"corte"}'),
       promptChars: 4,
+      model: 'test-model',
       onUsage: () => undefined,
       onError,
     });

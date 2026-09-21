@@ -42,6 +42,7 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [status, setStatus] = useState<'idle' | 'streaming' | 'error' | 'capped'>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState('');
   const tokenRef = useRef<string>('');
   const widgetRef = useRef<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -81,6 +82,18 @@ export default function Chat() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  function clearConversation(): void {
+    setMessages([]);
+    setInput('');
+    setError(null);
+    setStatus('idle');
+    setAnnouncement('');
+    tokenRef.current = '';
+    if (widgetRef.current && window.turnstile) {
+      window.turnstile.reset(widgetRef.current);
+    }
+  }
+
   async function send(text: string): Promise<void> {
     const trimmed = text.trim();
     if (trimmed.length === 0 || status === 'streaming') {
@@ -88,6 +101,7 @@ export default function Chat() {
     }
     setError(null);
     setStatus('streaming');
+    setAnnouncement('Assistente respondendo...');
     const history: Message[] = [...messages, { role: 'user', content: trimmed }];
     setMessages([...history, { role: 'assistant', content: '' }]);
     setInput('');
@@ -102,6 +116,7 @@ export default function Chat() {
         const payload = (await response.json().catch(() => ({}))) as { code?: string };
         setStatus(payload.code === 'daily_cap_exceeded' ? 'capped' : 'error');
         setError(payload.code ?? `HTTP ${response.status}`);
+        setAnnouncement('');
         setMessages(history);
         return;
       }
@@ -131,9 +146,11 @@ export default function Chat() {
         }
       }
       setStatus((current) => (current === 'streaming' ? 'idle' : current));
+      setAnnouncement('Resposta recebida.');
     } catch {
       setStatus('error');
       setError('falha de rede');
+      setAnnouncement('');
       setMessages(
         assistant.length === 0 ? history : [...history, { role: 'assistant', content: assistant }],
       );
@@ -148,8 +165,13 @@ export default function Chat() {
   return (
     <div className={styles.chat}>
       <p className={styles.srOnly} role="status" aria-live="polite">
-        {status === 'streaming' ? 'Assistente respondendo...' : ''}
+        {announcement}
       </p>
+      <div className={styles.toolbar}>
+        <button type="button" className={styles.clear} onClick={clearConversation}>
+          Limpar
+        </button>
+      </div>
       <div className={styles.messages}>
         {messages.length === 0 && (
           <div className={styles.suggestions}>
@@ -204,7 +226,6 @@ export default function Chat() {
           value={input}
           onChange={(event) => setInput(event.target.value)}
           placeholder="Pergunte sobre o Paulo..."
-          disabled={status === 'streaming'}
         />
         <button
           type="submit"

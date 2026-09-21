@@ -60,14 +60,17 @@ describe('createHandler', () => {
   });
 
   it('bloqueia origem fora da allowlist', async () => {
-    const handler = createHandler(makeDeps());
+    const runModel = vi.fn();
+    const handler = createHandler(makeDeps({ runModel }));
     const response = await handler(chatRequest(validBody, 'https://evil.example'));
     expect(response.status).toBe(403);
     expect((await response.json<{ code: string }>()).code).toBe('origin_not_allowed');
+    expect(runModel).not.toHaveBeenCalled();
   });
 
   it('rejeita JSON invalido com 400', async () => {
-    const handler = createHandler(makeDeps());
+    const runModel = vi.fn();
+    const handler = createHandler(makeDeps({ runModel }));
     const response = await handler(
       new Request('https://ai.pvsouza.com/chat', {
         method: 'POST',
@@ -77,12 +80,15 @@ describe('createHandler', () => {
     );
     expect(response.status).toBe(400);
     expect((await response.json<{ code: string }>()).code).toBe('invalid_request');
+    expect(runModel).not.toHaveBeenCalled();
   });
 
   it('rejeita payload invalido com 400', async () => {
-    const handler = createHandler(makeDeps());
+    const runModel = vi.fn();
+    const handler = createHandler(makeDeps({ runModel }));
     const response = await handler(chatRequest({ messages: [] }));
     expect(response.status).toBe(400);
+    expect(runModel).not.toHaveBeenCalled();
   });
 
   it('bloqueia Turnstile invalido com 403 e nao chama a IA', async () => {
@@ -95,11 +101,13 @@ describe('createHandler', () => {
   });
 
   it('responde 429 com Retry-After quando o rate limita', async () => {
-    const handler = createHandler(makeDeps({ checkRate: async () => false }));
+    const runModel = vi.fn();
+    const handler = createHandler(makeDeps({ checkRate: async () => false, runModel }));
     const response = await handler(chatRequest(validBody));
     expect(response.status).toBe(429);
     expect(response.headers.get('retry-after')).toBe('60');
     expect((await response.json<{ code: string }>()).code).toBe('rate_limited');
+    expect(runModel).not.toHaveBeenCalled();
   });
 
   it('responde 429 quando o teto diario foi atingido e nao chama a IA', async () => {
