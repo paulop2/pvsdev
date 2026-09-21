@@ -26,9 +26,20 @@ export function parseUpstreamFrame(line: string): UpstreamFrame {
     return { kind: 'done' };
   }
   try {
-    const parsed = JSON.parse(payload) as { response?: unknown };
+    const parsed = JSON.parse(payload) as {
+      response?: unknown;
+      choices?: Array<{ delta?: { content?: unknown }; finish_reason?: unknown }>;
+    };
     if (typeof parsed.response === 'string' && parsed.response.length > 0) {
       return { kind: 'delta', text: parsed.response };
+    }
+    const choice = parsed.choices?.[0];
+    const content = choice?.delta?.content;
+    if (typeof content === 'string' && content.length > 0) {
+      return { kind: 'delta', text: content };
+    }
+    if (typeof choice?.finish_reason === 'string' && choice.finish_reason.length > 0) {
+      return { kind: 'done' };
     }
     return { kind: 'ignore' };
   } catch {

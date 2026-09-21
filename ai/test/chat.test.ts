@@ -53,6 +53,25 @@ describe('parseUpstreamFrame', () => {
   it('ignora JSON invalido sem lancar', () => {
     expect(parseUpstreamFrame('data: {oops')).toEqual({ kind: 'ignore' });
   });
+
+  it('extrai delta no formato OpenAI-compat', () => {
+    expect(parseUpstreamFrame('data: {"choices":[{"delta":{"content":"ola"}}]}')).toEqual({
+      kind: 'delta',
+      text: 'ola',
+    });
+  });
+
+  it('ignora frames OpenAI-compat sem conteudo nem finish_reason', () => {
+    expect(parseUpstreamFrame('data: {"choices":[{"delta":{"role":"assistant"}}]}')).toEqual({
+      kind: 'ignore',
+    });
+  });
+
+  it('reconhece finish_reason como fim do stream', () => {
+    expect(
+      parseUpstreamFrame('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}'),
+    ).toEqual({ kind: 'done' });
+  });
 });
 
 describe('estimateTokens', () => {
@@ -138,4 +157,41 @@ describe('toSseStream', () => {
     expect(onError).toHaveBeenCalledTimes(1);
     expect((onError.mock.calls[0]?.[0] as Error).message).toBe('stream truncated');
   });
+
+  it('traduz frames OpenAI-compat para o SSE do contrato', async () => {
+    const stream = toSseStream({
+      upstream: upstreamFrom(
+        'data: {"choices":[{"delta":{"role":"assistant"}}]}\n' +
+          'data: {"choices":[{"delta":{"content":"ola"}}]}\n' +
+          'data: {"choices":[{"delta":{"content":" mundo"}}]}\n' +
+          'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n' +
+          'data: [DONE]\n',
+      ),
+      promptChars: 4,
+      model: 'test-model',
+      onUsage: () => undefined,
+    });
+    const output = await readAll(stream);
+    expect(output).toContain('event: token\ndata: {"delta":"ola"}');
+    expect(output).toContain('event: token\ndata: {"delta":" mundo"}');
+    expect(output).toContain('event: done');
+    expect(output).not.toContain('event: error');
+  });
+
+  it('conclui com done quando o upstream OpenAI termina sem [DONE]', async () => {
+    const stream = toSseStream({
+      upstream: upstreamFrom(
+        'data: {"choices":[{"delta":{"content":"ola"}}]}\n' +
+          'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n',
+      ),
+      promptChars: 4,
+      model: 'test-model',
+      onUsage: () => undefined,
+    });
+    const output = await readAll(stream);
+    expect(output).toContain('event: token\ndata: {"delta":"ola"}');
+    expect(output).toContain('event: done');
+    expect(output).not.toContain('event: error');
+  });
 });
+

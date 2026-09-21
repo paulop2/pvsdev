@@ -3,18 +3,15 @@ import { validateChatRequest, type ChatMessage } from './validation';
 import { SYSTEM_PROMPT } from './system-prompt';
 import { toSseStream, type ModelMessage, type Usage } from './chat';
 import type { Config } from './config';
+import type { LlmProvider } from './providers';
 
 export interface HandlerDeps {
   config: Config;
+  provider: LlmProvider;
   verifyTurnstile: (token: string, ip: string | null) => Promise<boolean>;
   checkRate: (ip: string) => Promise<boolean>;
   getUsedTokens: () => Promise<number>;
   addTokens: (tokens: number) => Promise<void>;
-  runModel: (args: {
-    model: string;
-    messages: ModelMessage[];
-    maxTokens: number;
-  }) => Promise<ReadableStream<Uint8Array>>;
   log: (message: string) => void;
 }
 
@@ -104,7 +101,7 @@ export function createHandler(deps: HandlerDeps): (request: Request) => Promise<
 
     let upstream: ReadableStream<Uint8Array>;
     try {
-      upstream = await deps.runModel({
+      upstream = await deps.provider.run({
         model: deps.config.model,
         messages,
         maxTokens: deps.config.maxTokens,
