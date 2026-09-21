@@ -196,4 +196,18 @@ describe('createHandler', () => {
     );
     expect(response.status).toBe(404);
   });
+
+  it('responde informacoes na raiz', async () => {
+    const handler = createHandler(makeDeps());
+    const response = await handler(
+      new Request('https://ai.pvsouza.com/', {
+        method: 'GET',
+        headers: { origin: 'https://pvsouza.com' },
+      }),
+    );
+    expect(response.status).toBe(200);
+    const body = await response.json<{ service: string; endpoints: string[] }>();
+    expect(body.service).toBe('pvsouza-ai');
+    expect(body.endpoints).toContain('POST /chat');
+  });
 });

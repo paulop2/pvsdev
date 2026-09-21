@@ -43,6 +43,17 @@ export function createHandler(deps: HandlerDeps): (request: Request) => Promise<
       return jsonResponse(200, { status: 'ok' }, cors);
     }
 
+    if (url.pathname === '/' || url.pathname === '') {
+      if (request.method !== 'GET') {
+        return jsonResponse(405, { code: 'method_not_allowed' }, cors);
+      }
+      return jsonResponse(
+        200,
+        { service: 'pvsouza-ai', endpoints: ['POST /chat', 'GET /health'] },
+        cors,
+      );
+    }
+
     if (url.pathname !== '/chat') {
       return jsonResponse(404, { code: 'not_found' }, cors);
     }
