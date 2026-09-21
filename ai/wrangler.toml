@@ -7,7 +7,7 @@ binding = "AI"
 
 [[kv_namespaces]]
 binding = "DAILY_CAP"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "9ad9ef803890466681f82d4ff3102b80"
 
 [[ratelimits]]
 name = "CHAT_RATE"
@@ -22,3 +22,7 @@ CHAT_PROVIDER = "workers-ai"
 CHAT_MODEL = "@cf/deepseek-ai/deepseek-v4-flash-0731"
 DAILY_TOKEN_CAP = "100000"
 ALLOWED_ORIGINS = "https://pvsouza.com,https://www.pvsouza.com,http://localhost:3000"
+
+[[routes]]
+pattern = "ai.pvsouza.com"
+custom_domain = true
