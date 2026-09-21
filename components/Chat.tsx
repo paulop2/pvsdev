@@ -24,6 +24,7 @@ declare global {
         },
       ) => string;
       reset: (widgetId?: string) => void;
+      remove: (widgetId?: string) => void;
     };
   }
 }
@@ -47,6 +48,9 @@ export default function Chat() {
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   const renderWidget = useCallback(() => {
+    if (widgetRef.current) {
+      return;
+    }
     if (!containerRef.current || !window.turnstile || SITE_KEY.length === 0) {
       return;
     }
@@ -65,6 +69,12 @@ export default function Chat() {
     if (window.turnstile) {
       renderWidget();
     }
+    return () => {
+      if (widgetRef.current) {
+        window.turnstile?.remove(widgetRef.current);
+        widgetRef.current = null;
+      }
+    };
   }, [renderWidget]);
 
   useEffect(() => {
@@ -81,6 +91,7 @@ export default function Chat() {
     const history: Message[] = [...messages, { role: 'user', content: trimmed }];
     setMessages([...history, { role: 'assistant', content: '' }]);
     setInput('');
+    let assistant = '';
     try {
       const response = await fetch(`${API_URL}/chat`, {
         method: 'POST',
@@ -100,7 +111,6 @@ export default function Chat() {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      let assistant = '';
       for (;;) {
         const { done, value } = await reader.read();
         if (done) {
@@ -124,6 +134,9 @@ export default function Chat() {
     } catch {
       setStatus('error');
       setError('falha de rede');
+      setMessages(
+        assistant.length === 0 ? history : [...history, { role: 'assistant', content: assistant }],
+      );
     } finally {
       tokenRef.current = '';
       if (widgetRef.current && window.turnstile) {
@@ -134,7 +147,10 @@ export default function Chat() {
 
   return (
     <div className={styles.chat}>
-      <div className={styles.messages} aria-live="polite">
+      <p className={styles.srOnly} role="status" aria-live="polite">
+        {status === 'streaming' ? 'Assistente respondendo...' : ''}
+      </p>
+      <div className={styles.messages}>
         {messages.length === 0 && (
           <div className={styles.suggestions}>
             {SUGGESTIONS.map((suggestion) => (
@@ -167,7 +183,9 @@ export default function Chat() {
       </div>
       {error && (
         <p className={styles.error} role="alert">
-          {error}
+          {status === 'capped'
+            ? 'Limite diario de mensagens atingido. Tente novamente mais tarde.'
+            : error}
         </p>
       )}
       <form
