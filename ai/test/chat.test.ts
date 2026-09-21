@@ -1,0 +1,82 @@
+import { describe, expect, it, vi } from 'vitest';
+import { estimateTokens, parseUpstreamFrame, toSseStream, type Usage } from '../src/chat';
+
+function upstreamFrom(text: string): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(encoder.encode(text));
+      controller.close();
+    },
+  });
+}
+
+async function readAll(stream: ReadableStream<Uint8Array>): Promise<string> {
+  const decoder = new TextDecoder();
+  const reader = stream.getReader();
+  let output = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    output += decoder.decode(value, { stream: true });
+  }
+  return output;
+}
+
+describe('parseUpstreamFrame', () => {
+  it('extrai delta de um frame', () => {
+    expect(parseUpstreamFrame('data: {"response":"ola"}')).toEqual({ kind: 'delta', text: 'ola' });
+  });
+
+  it('reconhece [DONE]', () => {
+    expect(parseUpstreamFrame('data: [DONE]')).toEqual({ kind: 'done' });
+  });
+
+  it('ignora linhas vazias ou nao-data', () => {
+    expect(parseUpstreamFrame('')).toEqual({ kind: 'ignore' });
+    expect(parseUpstreamFrame(': keep-alive')).toEqual({ kind: 'ignore' });
+    expect(parseUpstreamFrame('data: ')).toEqual({ kind: 'ignore' });
+  });
+
+  it('ignora JSON invalido sem lancar', () => {
+    expect(parseUpstreamFrame('data: {oops')).toEqual({ kind: 'ignore' });
+  });
+});
+
+describe('estimateTokens', () => {
+  it('estima chars/4 arredondando para cima', () => {
+    expect(estimateTokens(0)).toBe(0);
+    expect(estimateTokens(1)).toBe(1);
+    expect(estimateTokens(4)).toBe(1);
+    expect(estimateTokens(5)).toBe(2);
+  });
+});
+
+describe('toSseStream', () => {
+  it('emite tokens, done com usage e chama onUsage', async () => {
+    const onUsage = vi.fn<(usage: Usage) => void>();
+    const stream = toSseStream({
+      upstream: upstreamFrom('data: {"response":"ola"}\ndata: {"response":" mundo"}\ndata: [DONE]\n'),
+      promptChars: 8,
+      onUsage,
+    });
+    const output = await readAll(stream);
+    expect(output).toContain('event: token\ndata: {"delta":"ola"}');
+    expect(output).toContain('event: token\ndata: {"delta":" mundo"}');
+    expect(output).toContain('event: done');
+    expect(output).toContain('"prompt":2');
+    expect(output).toContain('"completion":3');
+    expect(onUsage).toHaveBeenCalledWith({ prompt: 2, completion: 3 });
+  });
+
+  it('emite erro quando o upstream termina sem [DONE]', async () => {
+    const stream = toSseStream({
+      upstream: upstreamFrom('data: {"response":"corte"}'),
+      promptChars: 4,
+      onUsage: () => undefined,
+    });
+    const output = await readAll(stream);
+    expect(output).toContain('event: error');
+    expect(output).not.toContain('event: done');
+  });
+});
