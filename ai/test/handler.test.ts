@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createHandler, type HandlerDeps } from '../src/handler';
 import { loadConfig } from '../src/config';
 import type { ModelMessage, Usage } from '../src/chat';
+import type { LlmProvider, ProviderName } from '../src/providers';
 
 const encoder = new TextEncoder();
 
@@ -14,6 +15,13 @@ function upstream(text: string): ReadableStream<Uint8Array> {
   });
 }
 
+function providerStub(
+  run: LlmProvider['run'],
+  name: ProviderName = 'workers-ai',
+): LlmProvider {
+  return { name, run };
+}
+
 function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps {
   const config = loadConfig({
     CHAT_MODEL: 'test-model',
@@ -22,11 +30,13 @@ function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps {
   });
   const deps: HandlerDeps = {
     config,
+    provider: providerStub(
+      async () => upstream('data: {"response":"ola"}\ndata: [DONE]\n'),
+    ),
     verifyTurnstile: async () => true,
     checkRate: async () => true,
     getUsedTokens: async () => 0,
     addTokens: async () => undefined,
-    runModel: async () => upstream('data: {"response":"ola"}\ndata: [DONE]\n'),
     log: () => undefined,
     ...overrides,
   };
@@ -60,17 +70,17 @@ describe('createHandler', () => {
   });
 
   it('bloqueia origem fora da allowlist', async () => {
-    const runModel = vi.fn();
-    const handler = createHandler(makeDeps({ runModel }));
+    const run = vi.fn();
+    const handler = createHandler(makeDeps({ provider: providerStub(run) }));
     const response = await handler(chatRequest(validBody, 'https://evil.example'));
     expect(response.status).toBe(403);
     expect((await response.json<{ code: string }>()).code).toBe('origin_not_allowed');
-    expect(runModel).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
   });
 
   it('rejeita JSON invalido com 400', async () => {
-    const runModel = vi.fn();
-    const handler = createHandler(makeDeps({ runModel }));
+    const run = vi.fn();
+    const handler = createHandler(makeDeps({ provider: providerStub(run) }));
     const response = await handler(
       new Request('https://ai.pvsouza.com/chat', {
         method: 'POST',
@@ -80,51 +90,57 @@ describe('createHandler', () => {
     );
     expect(response.status).toBe(400);
     expect((await response.json<{ code: string }>()).code).toBe('invalid_request');
-    expect(runModel).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
   });
 
   it('rejeita payload invalido com 400', async () => {
-    const runModel = vi.fn();
-    const handler = createHandler(makeDeps({ runModel }));
+    const run = vi.fn();
+    const handler = createHandler(makeDeps({ provider: providerStub(run) }));
     const response = await handler(chatRequest({ messages: [] }));
     expect(response.status).toBe(400);
-    expect(runModel).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
   });
 
   it('bloqueia Turnstile invalido com 403 e nao chama a IA', async () => {
-    const runModel = vi.fn();
-    const handler = createHandler(makeDeps({ verifyTurnstile: async () => false, runModel }));
+    const run = vi.fn();
+    const handler = createHandler(
+      makeDeps({ verifyTurnstile: async () => false, provider: providerStub(run) }),
+    );
     const response = await handler(chatRequest(validBody));
     expect(response.status).toBe(403);
     expect((await response.json<{ code: string }>()).code).toBe('turnstile_failed');
-    expect(runModel).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
   });
 
   it('responde 429 com Retry-After quando o rate limita', async () => {
-    const runModel = vi.fn();
-    const handler = createHandler(makeDeps({ checkRate: async () => false, runModel }));
+    const run = vi.fn();
+    const handler = createHandler(
+      makeDeps({ checkRate: async () => false, provider: providerStub(run) }),
+    );
     const response = await handler(chatRequest(validBody));
     expect(response.status).toBe(429);
     expect(response.headers.get('retry-after')).toBe('60');
     expect((await response.json<{ code: string }>()).code).toBe('rate_limited');
-    expect(runModel).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
   });
 
   it('responde 429 quando o teto diario foi atingido e nao chama a IA', async () => {
-    const runModel = vi.fn();
-    const handler = createHandler(makeDeps({ getUsedTokens: async () => 1000, runModel }));
+    const run = vi.fn();
+    const handler = createHandler(
+      makeDeps({ getUsedTokens: async () => 1000, provider: providerStub(run) }),
+    );
     const response = await handler(chatRequest(validBody));
     expect(response.status).toBe(429);
     expect((await response.json<{ code: string }>()).code).toBe('daily_cap_exceeded');
-    expect(runModel).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
   });
 
   it('responde 502 quando a IA falha antes do stream', async () => {
     const handler = createHandler(
       makeDeps({
-        runModel: async () => {
+        provider: providerStub(async () => {
           throw new Error('upstream down');
-        },
+        }),
       }),
     );
     const response = await handler(chatRequest(validBody));
@@ -136,10 +152,10 @@ describe('createHandler', () => {
     const seen: ModelMessage[][] = [];
     const handler = createHandler(
       makeDeps({
-        runModel: async ({ messages }) => {
+        provider: providerStub(async ({ messages }) => {
           seen.push(messages);
           return upstream('data: {"response":"ok"}\ndata: [DONE]\n');
-        },
+        }),
       }),
     );
     await handler(chatRequest(validBody));

@@ -1,1 +1,8 @@
 TURNSTILE_SECRET=replace-with-turnstile-secret
+CHAT_PROVIDER=workers-ai
+GROQ_API_KEY=replace-with-groq-api-key
+GROQ_MODEL=llama-3.3-70b-versatile
+XAI_API_KEY=replace-with-xai-api-key
+XAI_MODEL=grok-4
+CEREBRAS_API_KEY=replace-with-cerebras-api-key
+CEREBRAS_MODEL=llama-3.3-70b
