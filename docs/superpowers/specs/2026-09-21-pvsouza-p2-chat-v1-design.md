@@ -54,7 +54,7 @@ routes; todo acesso a IA vive num Worker dedicado em `ai/`.
 | Persona | Assistente do portfólio (system prompt no Worker). |
 | Histórico | Só no cliente; reenviado a cada turno, limitado. |
 | Render Markdown | `react-markdown` + `remark-gfm` (sem HTML cru). |
-| Testes do Worker | `vitest` + `@cloudflare/vitest-pool-workers`, adapters falsos. |
+| Testes do Worker | `vitest` com dependências injetadas (adapters falsos); sem pool de runtime. |
 | Gateway | AI Gateway fica para o v2. |
 
 ## 4. Arquitetura e topologia
@@ -134,7 +134,9 @@ Erros **antes** do stream (JSON, com cabeçalhos CORS):
 | Status | code | Quando |
 |---|---|---|
 | 400 | `invalid_request` | payload malformado ou fora dos limites |
+| 403 | `origin_not_allowed` | `Origin` fora da allowlist |
 | 403 | `turnstile_failed` | verificação do Turnstile falhou (fail-closed) |
+| 404 | `not_found` | rota desconhecida |
 | 429 | `rate_limited` | excedeu o rate limit por IP (`Retry-After`) |
 | 429 | `daily_cap_exceeded` | teto diário de tokens atingido |
 | 405 | `method_not_allowed` | método diferente de POST/OPTIONS |
@@ -163,7 +165,8 @@ teto diário -> Workers AI.
   cliente após cada envio. O
   Worker chama `siteverify` com `secret` + `token` + IP. **Fail-closed**:
   qualquer falha, expiração ou erro de rede -> `403 turnstile_failed`. Sem
-  `TURNSTILE_SECRET` configurado, o Worker falha no startup em produção.
+  `TURNSTILE_SECRET` configurado, toda requisição a `/chat` responde `403`
+  (o Worker fica inutilizável até o secret ser configurado).
 - **Rate limit:** binding nativo do Cloudflare, chave = `CF-Connecting-IP`,
   **10 req/min** (config no `wrangler.toml`). Excedeu ->
   `429 rate_limited` + `Retry-After`.
@@ -173,8 +176,8 @@ teto diário -> Workers AI.
   (limite documentado); v2 pode migrar para Durable Object.
 - **Contagem de tokens:** usa `usage` do Workers AI quando disponível; senão
   estima `~chars/4`. Serve só para o teto, não é cobrança.
-- **Privacidade:** logs só de metadados (status, tokens, latência, IP
-  truncado). Nunca prompt/resposta.
+- **Privacidade:** nenhum log de prompt ou resposta. Apenas falhas de upstream
+  são logadas, sem o conteúdo do usuário.
 
 ## 7. Worker — estrutura e comportamento
 
@@ -226,8 +229,8 @@ ai/
 
 ## 10. Testes e verificação
 
-**Worker (`vitest` + `@cloudflare/vitest-pool-workers`), com AI/Turnstile/KV/rate
-falsos:**
+**Worker (`vitest`), com AI/Turnstile/KV/rate falsos injetados via
+`createHandler(deps)`:**
 
 - validação de payload (limites de mensagens/chars, papel do último item);
 - CORS (origem permitida, negada, preflight);
@@ -238,7 +241,8 @@ falsos:**
 - `GET /health`.
 
 **UI/site:** `npm run typecheck` e `npm run build` (obrigatórios pelo
-`AGENTS.md`) e smoke manual no `/chat`.
+`AGENTS.md`), teste unitário do parser SSE do cliente (`components/chatStream.ts`)
+com `vitest` na raiz, e smoke manual no `/chat`.
 
 **Verificação E2E (manual):** após o deploy, enviar uma mensagem em
 `https://pvsouza.com/chat`, confirmar streaming, Markdown, bloqueio sem
