@@ -19,7 +19,7 @@ period = 60
 
 [vars]
 CHAT_PROVIDER = "workers-ai"
-CHAT_MODEL = "@cf/deepseek-ai/deepseek-v4-flash-0731"
+CHAT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
 DAILY_TOKEN_CAP = "100000"
 ALLOWED_ORIGINS = "https://pvsouza.com,https://www.pvsouza.com,http://localhost:3000"
 

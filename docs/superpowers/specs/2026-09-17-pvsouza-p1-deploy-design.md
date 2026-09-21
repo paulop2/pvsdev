@@ -1,7 +1,7 @@
 # pvsouza.com — Redesign e plataforma de IA
 
 **Data:** 2026-09-17
-**Status:** P0 e P1 concluídos; P2–P5 pendentes
+**Status:** P0–P2 concluídos; P3–P5 pendentes
 **Repo:** `paulop2/pvsdev` (`C:\Users\PVS\projetos\pvsdev`)
 
 ## Estado da execução
@@ -15,7 +15,10 @@
     (path e query preservados).
   - Verificado com `scripts/smoke.ps1` e `curl.exe`.
   - Desvio documentado: o demo `birds` foi adiado (follow-up), conforme mitigação da §5.6.
-- **P2–P5:** não iniciados.
+- **P2 — Chat v1:** concluído e publicado. Spec em
+  `docs/superpowers/specs/2026-09-21-pvsouza-p2-chat-v1-design.md`; Worker em
+  `https://ai.pvsouza.com` e chat em `https://pvsouza.com/chat`.
+- **P3–P5:** não iniciados.
 
 ## 1. Contexto
 

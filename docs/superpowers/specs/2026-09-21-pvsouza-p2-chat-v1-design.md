@@ -1,7 +1,7 @@
 # pvsouza.com — P2: Chat v1 (Worker de IA)
 
 **Data:** 2026-09-21
-**Status:** design aprovado; implementação não iniciada
+**Status:** implementado e publicado
 **Repo:** `paulop2/pvsdev` (`C:\Users\PVS\projetos\pvsdev`)
 **Spec-pai:** `docs/superpowers/specs/2026-09-17-pvsouza-p1-deploy-design.md` (roadmap P0–P5)
 
@@ -9,7 +9,15 @@
 
 - **P0 — Processo:** concluído.
 - **P1 — Deploy/plataforma:** concluído (`pvsouza.com` no Cloudflare Pages, Next 15 estático).
-- **P2 — Chat v1:** design aprovado nesta spec; implementação pendente.
+- **P2 — Chat v1:** concluído e publicado.
+  - Worker `pvsouza-ai` em `ai/`, no ar em `https://ai.pvsouza.com` (custom domain),
+    com Workers AI (`llama-3.3-70b-instruct-fp8-fast`), Turnstile, rate limit e teto
+    diário em KV.
+  - Site com `/chat` publicado em `https://pvsouza.com/chat`.
+  - Evidência: `GET https://ai.pvsouza.com/health` -> `200 {"status":"ok"}`;
+    `POST /chat` sem token válido -> `403 turnstile_failed`; preflight `204`;
+    streaming real verificado no Worker (modelos do plano Free); `npm run build`,
+    `npm run typecheck`, `npm test` (raiz e `ai/`) verdes.
 
 ## 1. Contexto
 
@@ -48,7 +56,7 @@ routes; todo acesso a IA vive num Worker dedicado em `ai/`.
 |---|---|
 | Abordagem do Worker | Worker TS mínimo com handler `fetch` e primitivas nativas (sem Hono/zod). |
 | Provedor de LLM | Cloudflare Workers AI (binding `AI`, sem chave externa). |
-| Modelo padrão | `@cf/deepseek-ai/deepseek-v4-flash-0731` (configurável por var). |
+| Modelo padrão | `@cf/meta/llama-3.3-70b-instruct-fp8-fast` (configurável por var). |
 | Endpoint | Subdomínio dedicado `ai.pvsouza.com` (Worker custom domain). |
 | Proteção | Turnstile + Rate Limiting binding (por IP) + teto diário em KV. |
 | Persona | Assistente do portfólio (system prompt no Worker). |
@@ -56,6 +64,10 @@ routes; todo acesso a IA vive num Worker dedicado em `ai/`.
 | Render Markdown | `react-markdown` + `remark-gfm` (sem HTML cru). |
 | Testes do Worker | `vitest` com dependências injetadas (adapters falsos); sem pool de runtime. |
 | Gateway | AI Gateway fica para o v2. |
+
+Nota de execução: `@cf/deepseek-ai/deepseek-v4-flash-0731` (a escolha inicial) exige
+plano Workers pago (erro `AiError: 5035`). No plano Free, o padrão passou a ser
+`@cf/meta/llama-3.3-70b-instruct-fp8-fast`, verificado com streaming real.
 
 ## 4. Arquitetura e topologia
 
@@ -67,7 +79,7 @@ browser (pvsouza.com/chat)
    v
 Worker: Turnstile -> rate limit por IP -> teto diario de tokens (KV)
    |
-   v  Workers AI binding (@cf/deepseek-ai/deepseek-v4-flash-0731)
+   v  Workers AI binding (@cf/meta/llama-3.3-70b-instruct-fp8-fast)
 stream SSE token a token --> browser renderiza Markdown progressivo
 ```
 
@@ -82,7 +94,7 @@ stream SSE token a token --> browser renderiza Markdown progressivo
 
 - Bindings: `AI` (Workers AI), `KV` (namespace `DAILY_CAP`), Rate Limiting
   (`CHAT_RATE`).
-- Vars: `CHAT_MODEL` (`@cf/deepseek-ai/deepseek-v4-flash-0731`),
+- Vars: `CHAT_MODEL` (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`),
   `DAILY_TOKEN_CAP` (`100000`), `ALLOWED_ORIGINS`.
 - Secrets (nunca no repo): `TURNSTILE_SECRET`.
 - Site: `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `NEXT_PUBLIC_CHAT_API_URL` no build.
@@ -123,7 +135,7 @@ event: token
 data: {"delta":", mundo"}
 
 event: done
-data: {"model":"@cf/deepseek-ai/deepseek-v4-flash-0731","usage":{"prompt":123,"completion":45}}
+data: {"model":"@cf/meta/llama-3.3-70b-instruct-fp8-fast","usage":{"prompt":123,"completion":45}}
 ```
 
 `usage` está sempre presente no `done`; quando o upstream não devolve, o Worker
