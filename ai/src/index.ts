@@ -1,25 +1,36 @@
 import { loadConfig } from './config';
+import { createHandler } from './handler';
+import { verifyTurnstile } from './turnstile';
+import { addTokens, capKey, getUsedTokens, type CapStore } from './daily-cap';
 import type { Env } from './env';
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
     const config = loadConfig(env);
-    if (url.pathname === '/health' && request.method === 'GET') {
-      return new Response(JSON.stringify({ status: 'ok' }), {
-        status: 200,
-        headers: { 'content-type': 'application/json; charset=utf-8' },
-      });
-    }
-    if (url.pathname === '/chat') {
-      return new Response(JSON.stringify({ code: 'not_found', model: config.model }), {
-        status: 501,
-        headers: { 'content-type': 'application/json; charset=utf-8' },
-      });
-    }
-    return new Response(JSON.stringify({ code: 'not_found' }), {
-      status: 404,
-      headers: { 'content-type': 'application/json; charset=utf-8' },
+    const store: CapStore = {
+      get: (key) => env.DAILY_CAP.get(key),
+      put: (key, value) => env.DAILY_CAP.put(key, value),
+    };
+    const handler = createHandler({
+      config,
+      verifyTurnstile: (token, ip) =>
+        verifyTurnstile({ secret: env.TURNSTILE_SECRET, token, ip }),
+      checkRate: async (ip) => {
+        const result = await env.CHAT_RATE.limit({ key: ip });
+        return result.success;
+      },
+      getUsedTokens: () => getUsedTokens(store, capKey(new Date())),
+      addTokens: (tokens) => addTokens(store, capKey(new Date()), tokens),
+      runModel: async ({ model, messages, maxTokens }) => {
+        const stream = await env.AI.run(model, {
+          messages,
+          max_tokens: maxTokens,
+          stream: true,
+        });
+        return stream as unknown as ReadableStream<Uint8Array>;
+      },
+      log: (message) => console.log(message),
     });
+    return handler(request);
   },
 } satisfies ExportedHandler<Env>;
