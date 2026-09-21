@@ -35,6 +35,6 @@ Antes de interromper uma sub-issue, publique um comentário com: estado atual e 
 
 ## Concluir
 
-- A decisão de merge é do mantenedor; faça merge somente sob pedido explícito.
+- Faça merge da PR assim que as verificações obrigatórias passarem; não aguarde pedido explícito.
 - Feche sub-issues de código pela PR com `Closes #<numero>`.
 - Registre follow-ups como novas sub-issues.
