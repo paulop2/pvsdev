@@ -1,0 +1,23 @@
+name = "pvsouza-ai"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+[ai]
+binding = "AI"
+
+[[kv_namespaces]]
+binding = "DAILY_CAP"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+[[ratelimits]]
+name = "CHAT_RATE"
+namespace_id = "1001"
+
+[ratelimits.simple]
+limit = 10
+period = 60
+
+[vars]
+CHAT_MODEL = "@cf/deepseek-ai/deepseek-v4-flash-0731"
+DAILY_TOKEN_CAP = "100000"
+ALLOWED_ORIGINS = "https://pvsouza.com,https://www.pvsouza.com,http://localhost:3000"
