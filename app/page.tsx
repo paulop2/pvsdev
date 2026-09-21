@@ -16,11 +16,10 @@ export default function Home() {
             <p>-- em breve --</p>
           </a>
 
-          <div className={styles.card}>
+          <Link href="/chat" className={styles.card}>
             <h3>Chat &rarr;</h3>
             <p>Converse com meu assistente de IA.</p>
-            <p>-- em breve --</p>
-          </div>
+          </Link>
 
           <div className={styles.card}>
             <h3>RAG &rarr;</h3>
