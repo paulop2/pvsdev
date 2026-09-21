@@ -11,6 +11,18 @@ function upstreamFrom(text: string): ReadableStream<Uint8Array> {
   });
 }
 
+function upstreamChunks(...chunks: string[]): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const chunk of chunks) {
+        controller.enqueue(encoder.encode(chunk));
+      }
+      controller.close();
+    },
+  });
+}
+
 async function readAll(stream: ReadableStream<Uint8Array>): Promise<string> {
   const decoder = new TextDecoder();
   const reader = stream.getReader();
@@ -78,5 +90,46 @@ describe('toSseStream', () => {
     const output = await readAll(stream);
     expect(output).toContain('event: error');
     expect(output).not.toContain('event: done');
+  });
+
+  it('emite token e done quando um delta e dividido entre chunks', async () => {
+    const onUsage = vi.fn<(usage: Usage) => void>();
+    const stream = toSseStream({
+      upstream: upstreamChunks('data: {"res', 'ponse":"ola"}\ndata: [DONE]\n'),
+      promptChars: 4,
+      onUsage,
+    });
+    const output = await readAll(stream);
+    expect(output).toContain('event: token\ndata: {"delta":"ola"}');
+    expect(output).toContain('event: done');
+  });
+
+  it('nao emite error depois de done quando onUsage rejeita', async () => {
+    const onUsage = vi.fn(() => Promise.reject(new Error('boom')));
+    const onError = vi.fn();
+    const stream = toSseStream({
+      upstream: upstreamFrom('data: {"response":"ola"}\ndata: [DONE]\n'),
+      promptChars: 4,
+      onUsage,
+      onError,
+    });
+    const output = await readAll(stream);
+    expect(output).toContain('event: done');
+    expect(output).not.toContain('event: error');
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect((onError.mock.calls[0]?.[0] as Error).message).toBe('boom');
+  });
+
+  it('chama onError quando o upstream trunca', async () => {
+    const onError = vi.fn();
+    const stream = toSseStream({
+      upstream: upstreamFrom('data: {"response":"corte"}'),
+      promptChars: 4,
+      onUsage: () => undefined,
+      onError,
+    });
+    await readAll(stream);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect((onError.mock.calls[0]?.[0] as Error).message).toBe('stream truncated');
   });
 });

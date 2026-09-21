@@ -81,8 +81,18 @@ export function toSseStream(options: ChatStreamOptions): ReadableStream<Uint8Arr
             }
           }
         }
+        if (buffer.length > 0) {
+          const parsed = parseUpstreamFrame(buffer);
+          if (parsed.kind === 'delta') {
+            completion += parsed.text;
+            controller.enqueue(frame('token', { delta: parsed.text }));
+          } else if (parsed.kind === 'done') {
+            sawDone = true;
+          }
+        }
         if (!sawDone) {
           controller.enqueue(frame('error', { code: 'stream_error', message: 'stream truncated' }));
+          options.onError?.(new Error('stream truncated'));
           return;
         }
         const usage: Usage = {
@@ -90,12 +100,14 @@ export function toSseStream(options: ChatStreamOptions): ReadableStream<Uint8Arr
           completion: estimateTokens(completion.length),
         };
         controller.enqueue(frame('done', { usage }));
-        await options.onUsage(usage);
+        try {
+          await options.onUsage(usage);
+        } catch (error) {
+          options.onError?.(error);
+        }
       } catch (error) {
         controller.enqueue(frame('error', { code: 'stream_error', message: 'stream failed' }));
-        if (options.onError) {
-          options.onError(error);
-        }
+        options.onError?.(error);
       } finally {
         controller.close();
       }
