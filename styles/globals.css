@@ -24,6 +24,7 @@
   --text-max: 68ch;
   --gutter-x: clamp(1.25rem, 5vw, 3.5rem);
   --header-h: 64px;
+  --content-left: max(var(--gutter-x), calc((100% - var(--content-max)) / 2 + var(--gutter-x)));
 
   --radius-card: 16px;
   --radius-button: 12px;
