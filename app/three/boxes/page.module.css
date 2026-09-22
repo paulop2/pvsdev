@@ -1,0 +1,10 @@
+.page {
+  padding: calc(32px + var(--header-h) + 2rem) var(--gutter-x) 4rem;
+}
+
+.title {
+  max-width: var(--content-max);
+  margin-inline: auto;
+  margin-bottom: 1.5rem;
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+}

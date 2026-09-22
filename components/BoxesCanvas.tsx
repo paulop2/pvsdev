@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Box } from '@react-three/drei';
+import styles from '@/components/BoxesCanvas.module.css';
 
 function MyBox(props: Record<string, unknown>) {
   const mesh = useRef<any>(null);
@@ -30,14 +31,16 @@ function MyBox(props: Record<string, unknown>) {
 
 export default function BoxesCanvas() {
   return (
-    <Canvas camera={{ position: [0, 0, 35] }}>
-      <ambientLight intensity={2} />
-      <pointLight position={[40, 40, 40]} />
-      <MyBox position={[10, 0, 0]} />
-      <MyBox position={[-10, 0, 0]} />
-      <MyBox position={[0, 10, 0]} />
-      <MyBox position={[0, -10, 0]} />
-      <OrbitControls />
-    </Canvas>
+    <div className={styles.canvas}>
+      <Canvas camera={{ position: [0, 0, 35] }}>
+        <ambientLight intensity={2} />
+        <pointLight position={[40, 40, 40]} />
+        <MyBox position={[10, 0, 0]} />
+        <MyBox position={[-10, 0, 0]} />
+        <MyBox position={[0, 10, 0]} />
+        <MyBox position={[0, -10, 0]} />
+        <OrbitControls />
+      </Canvas>
+    </div>
   );
 }
