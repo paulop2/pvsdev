@@ -290,7 +290,7 @@ function Get-IssueStatus {
         if ($completion.Status -eq 'done') {
             return New-IssueStatusResult -Status 'done' -Reason $null -NextAction 'reconcile'
         }
-        return New-IssueStatusResult -Status $completion.Status -Reason $completion.Reason -NextAction 'none'
+        return New-IssueStatusResult -Status $completion.Status -Reason $completion.Reason -NextAction 'reconcile'
     }
 
     if ($null -ne $pr -and [string](Get-Prop -Object $pr -Name 'state') -eq 'MERGED') {
