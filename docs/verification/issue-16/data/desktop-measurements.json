@@ -1,0 +1,55 @@
+{
+  "browser": "Chrome/153.0.8010.53",
+  "env": {
+    "innerWidth": 1904,
+    "innerHeight": 929,
+    "devicePixelRatio": 1,
+    "hardwareConcurrency": 12,
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+    "canvasBuffer": {
+      "w": 486,
+      "h": 486
+    },
+    "canvasCss": {
+      "x": 1002,
+      "y": 256,
+      "w": 486,
+      "h": 486
+    },
+    "glVendor": "Google Inc. (NVIDIA)",
+    "glRenderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5060 Ti (0x00002D04) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "ready": true,
+    "motion": "on"
+  },
+  "idle": {
+    "seconds": 4.012599999994039,
+    "drawCalls": 722,
+    "drawFps": 179.93321038754735,
+    "rafTicks": 722,
+    "rafFps": 179.93321038754735
+  },
+  "pointer": {
+    "count": 40,
+    "mouse": 40,
+    "lastType": "mouse"
+  },
+  "active": {
+    "seconds": 3.0152000000178814,
+    "drawCalls": 543,
+    "drawFps": 180.08755637993494,
+    "rafTicks": 543,
+    "rafFps": 180.08755637993494
+  },
+  "visibility": {
+    "stateHidden": {
+      "hidden": true,
+      "vis": "hidden"
+    },
+    "stateBack": {
+      "hidden": false,
+      "vis": "visible"
+    },
+    "hiddenDelta": 0,
+    "backDelta": 361
+  }
+}

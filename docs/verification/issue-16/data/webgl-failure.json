@@ -1,0 +1,13 @@
+{
+  "browser": "Chrome/153.0.8010.53",
+  "result": {
+    "webglSupported": false,
+    "canvasCount": 0,
+    "fallbackPresent": true,
+    "fallbackOpacity": "1",
+    "fallbackText": "",
+    "ctas": 25,
+    "h1": "Desenvolvimentofullstack paraprodutos web"
+  },
+  "errors": []
+}
