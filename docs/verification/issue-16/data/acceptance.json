@@ -1,0 +1,52 @@
+{
+  "browser": "Chrome/153.0.8010.53",
+  "results": {
+    "normal": {
+      "motion": "on",
+      "canvasCount": 1,
+      "fallbackVisible": true,
+      "canvasVisible": true,
+      "marqueePlayState": "running",
+      "dotfieldPlayState": "running",
+      "ctas": 25,
+      "rect": {
+        "x": 1002.09375,
+        "y": 256.140625,
+        "w": 486.390625,
+        "h": 486.390625
+      }
+    },
+    "motionOff": {
+      "motion": "off",
+      "ariaPressed": "true",
+      "canvasCount": 0,
+      "fallbackVisible": true,
+      "marqueePlayState": "paused",
+      "dotfieldPlayState": "paused"
+    },
+    "motionBack": {
+      "motion": "on",
+      "canvasCount": 1,
+      "marqueePlayState": "running"
+    },
+    "scrolledAway": {
+      "scrollY": 3637,
+      "canvasCount": 0,
+      "fallbackVisible": true
+    },
+    "scrolledBack": {
+      "scrollY": 0,
+      "canvasCount": 1,
+      "canvasVisible": true
+    },
+    "reducedMotion": {
+      "motion": "off",
+      "canvasCount": 0,
+      "fallbackVisible": true,
+      "marqueePlayState": "paused",
+      "dotfieldPlayState": "paused",
+      "ctas": 25
+    },
+    "errorsNormalRun": []
+  }
+}

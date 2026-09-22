@@ -1,0 +1,14 @@
+{
+  "browser": "Chrome/153.0.8010.53",
+  "mime": "video/webm;codecs=vp9",
+  "uploaded": {
+    "mime": "video/webm;codecs=vp9",
+    "size": 4796313,
+    "upload": {
+      "ok": true,
+      "name": "scene-desktop-issue16.webm",
+      "bytes": 4796313
+    }
+  },
+  "pointerSamples": 208
+}
