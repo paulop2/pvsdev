@@ -3,12 +3,15 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { chatCta, identity, navItems } from '@/content/site';
+import { useMotion } from '@/components/site/MotionProvider';
 import styles from '@/components/site/Header.module.css';
 
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const [announcement, setAnnouncement] = useState('');
   const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const { enabled, toggle } = useMotion();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -38,6 +41,9 @@ export default function Header() {
 
   return (
     <header className={`${styles.header} ${scrolled ? styles.scrolled : ''}`}>
+      <p className="srOnly" role="status" aria-live="polite">
+        {announcement}
+      </p>
       <div className={styles.inner}>
         <Link href="/" className={styles.brand} aria-label={`${identity.name} — início`}>
           <span className={styles.brandMark} aria-hidden="true">
@@ -55,6 +61,23 @@ export default function Header() {
         </nav>
 
         <div className={styles.right}>
+          <button
+            type="button"
+            className={styles.motion}
+            aria-pressed={!enabled}
+            aria-label={enabled ? 'Desativar movimento' : 'Ativar movimento'}
+            onClick={() => {
+              toggle();
+              setAnnouncement(enabled ? 'Movimento desativado.' : 'Movimento ativado.');
+            }}
+          >
+            <span
+              className={styles.motionDot}
+              data-on={enabled ? 'true' : undefined}
+              aria-hidden="true"
+            />
+            <span className={styles.motionLabel}>Movimento</span>
+          </button>
           <Link href={chatCta.href} className={styles.chatPill}>
             {chatCta.label}
           </Link>

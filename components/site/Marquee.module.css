@@ -5,20 +5,31 @@
   display: flex;
   align-items: center;
   height: 32px;
-  overflow: hidden;
   background: rgba(0, 0, 0, 0.78);
   border-bottom: 1px solid var(--line);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  mask-image: linear-gradient(90deg, transparent 0, #000 6%, #000 94%, transparent 100%);
-  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 6%, #000 94%, transparent 100%);
+}
+
+.viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent 0, #000 6%, #000 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 6%, #000 92%, transparent 100%);
 }
 
 .track {
   display: flex;
   flex: 0 0 auto;
   width: max-content;
+  height: 100%;
+  align-items: center;
   animation: marqueeScroll 52s linear infinite;
+}
+
+.track[data-paused='true'] {
+  animation-play-state: paused;
 }
 
 .group {
@@ -48,6 +59,35 @@
   opacity: 0.7;
 }
 
+.pause {
+  position: absolute;
+  right: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted-soft);
+  font-size: 0.58rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color var(--duration-hover) var(--ease-default),
+    border-color var(--duration-hover) var(--ease-default);
+}
+
+.pause:hover,
+.pause:focus-visible {
+  color: var(--accent-soft);
+  border-color: var(--line-bright);
+}
+
 @keyframes marqueeScroll {
   from {
     transform: translateX(0);
@@ -57,14 +97,18 @@
   }
 }
 
+:global(html[data-motion='off']) .track {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .track {
     animation: none;
   }
 
-  .marquee {
+  .viewport {
+    overflow-x: auto;
     mask-image: none;
     -webkit-mask-image: none;
-    overflow-x: auto;
   }
 }

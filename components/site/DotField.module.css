@@ -1,0 +1,29 @@
+.field {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(134, 239, 172, 0.16) 1px, transparent 1.6px);
+  background-size: 26px 26px;
+  opacity: 0.6;
+  animation: dotDrift 32s linear infinite;
+}
+
+@keyframes dotDrift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 26px 26px;
+  }
+}
+
+:global(html[data-motion='off']) .field {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .field {
+    animation: none;
+  }
+}
