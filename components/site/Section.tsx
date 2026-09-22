@@ -11,7 +11,12 @@ interface SectionProps {
 
 export default function Section({ id, index, label, title, description, children }: SectionProps) {
   return (
-    <section id={id} className={styles.section} aria-labelledby={`${id}-title`}>
+    <section
+      id={id}
+      className={styles.section}
+      aria-labelledby={`${id}-title`}
+      data-reveal="true"
+    >
       <div className={styles.inner}>
         <div className={styles.head}>
           <p className={styles.label}>

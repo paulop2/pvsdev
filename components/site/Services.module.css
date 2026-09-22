@@ -8,6 +8,9 @@
 }
 
 .card {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
@@ -19,6 +22,48 @@
     border-color var(--duration-hover) var(--ease-default),
     transform var(--duration-hover) var(--ease-default),
     box-shadow var(--duration-hover) var(--ease-default);
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(220px circle at 50% 0%, rgba(0, 255, 65, 0.1), transparent 70%);
+  opacity: 0;
+  transition: opacity var(--duration-hover) var(--ease-default);
+}
+
+.card::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -2px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 65, 0.7), transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.card:hover::before,
+.card:focus-within::before {
+  opacity: 1;
+}
+
+.card:hover::after,
+.card:focus-within::after {
+  opacity: 1;
+  animation: cardSweep 0.9s var(--ease-default) 1;
+}
+
+@keyframes cardSweep {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(360px);
+  }
 }
 
 .card:hover,
@@ -95,9 +140,17 @@
   }
 }
 
+:global(html[data-motion='off']) .card::after {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .card:hover,
   .card:focus-within {
     transform: none;
+  }
+
+  .card::after {
+    display: none;
   }
 }

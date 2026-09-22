@@ -143,6 +143,25 @@ button {
   transform: translateY(0);
 }
 
+[data-reveal] {
+  transition:
+    opacity var(--duration-reveal) var(--ease-default),
+    transform var(--duration-reveal) var(--ease-default);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html[data-reveal-ready='true'] [data-reveal]:not([data-visible='true']) {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
+html[data-motion='off'] [data-reveal] {
+  opacity: 1 !important;
+  transform: none !important;
+  transition: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

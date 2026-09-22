@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono, Space_Grotesk } from 'next/font/google';
+import DotField from '@/components/site/DotField';
 import Header from '@/components/site/Header';
 import Marquee from '@/components/site/Marquee';
+import { MotionProvider } from '@/components/site/MotionProvider';
 import { siteMeta } from '@/content/site';
 import '@/styles/globals.css';
 
@@ -43,12 +45,15 @@ export default function RootLayout({
       className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable}`}
     >
       <body>
-        <a className="skipLink" href="#main">
-          Pular para o conteúdo
-        </a>
-        <Marquee />
-        <Header />
-        <main id="main">{children}</main>
+        <MotionProvider>
+          <a className="skipLink" href="#main">
+            Pular para o conteúdo
+          </a>
+          <DotField />
+          <Marquee />
+          <Header />
+          <main id="main">{children}</main>
+        </MotionProvider>
       </body>
     </html>
   );
