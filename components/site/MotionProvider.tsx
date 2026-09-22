@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 interface MotionContextValue {
   enabled: boolean;
@@ -12,6 +13,7 @@ const MotionContext = createContext<MotionContextValue | null>(null);
 
 export function MotionProvider({ children }: { children: React.ReactNode }) {
   const [enabled, setEnabled] = useState(true);
+  const pathname = usePathname();
 
   useEffect(() => {
     const query = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -34,7 +36,6 @@ export function MotionProvider({ children }: { children: React.ReactNode }) {
     if (elements.length === 0) {
       return;
     }
-    root.dataset.revealReady = 'true';
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -44,14 +45,15 @@ export function MotionProvider({ children }: { children: React.ReactNode }) {
           }
         }
       },
-      { rootMargin: '0px 0px -8% 0px', threshold: 0.08 },
+      { rootMargin: '0px 0px 12% 0px', threshold: 0.01 },
     );
     elements.forEach((element) => observer.observe(element));
+    root.dataset.revealReady = 'true';
     return () => {
       observer.disconnect();
       delete root.dataset.revealReady;
     };
-  }, []);
+  }, [pathname]);
 
   const toggle = useCallback(() => setEnabled((value) => !value), []);
   const value = useMemo(() => ({ enabled, setEnabled, toggle }), [enabled, toggle]);

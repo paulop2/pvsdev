@@ -65,6 +65,12 @@ export default function BlackHoleStage() {
 
   const mountCanvas = webgl && enabled && near && !failed;
 
+  useEffect(() => {
+    if (!mountCanvas) {
+      setReady(false);
+    }
+  }, [mountCanvas]);
+
   return (
     <div className={styles.stage} ref={rootRef} aria-hidden="true">
       <div className={styles.inner}>

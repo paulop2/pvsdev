@@ -163,6 +163,13 @@ html[data-motion='off'] [data-reveal] {
   transition: none !important;
 }
 
+@media print {
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
