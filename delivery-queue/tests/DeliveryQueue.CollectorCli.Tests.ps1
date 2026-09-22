@@ -84,6 +84,37 @@ Describe 'New-DeliveryQueueGhAdapter' {
         $r.found | Should -BeTrue
         $r.state | Should -Be 'Ready'
     }
+
+    It 'pagina sub-issues preservando o InvokeGh capturado pela closure' {
+        $state = [pscustomobject]@{ call = 0 }
+        $pages = @(
+            [pscustomobject]@{ items = @([pscustomobject]@{ number = 1 }); hasNextPage = $true; endCursor = 'c1' },
+            [pscustomobject]@{ items = @([pscustomobject]@{ number = 2 }); hasNextPage = $false; endCursor = $null }
+        )
+        $fake = {
+            param($Arguments)
+            $page = $pages[$state.call]
+            $state.call++
+            $nodes = foreach ($item in $page.items) {
+                [pscustomobject]@{
+                    number = $item.number; id = "n$($item.number)"; title = 't'; state = 'OPEN'; stateReason = $null
+                    labels = [pscustomobject]@{ nodes = @() }; blockedBy = [pscustomobject]@{ nodes = @() }
+                }
+            }
+            return [pscustomobject]@{ data = [pscustomobject]@{ repository = [pscustomobject]@{ issue = [pscustomobject]@{ subIssues = [pscustomobject]@{
+                pageInfo = [pscustomobject]@{ hasNextPage = $page.hasNextPage; endCursor = $page.endCursor }
+                nodes = @($nodes)
+            } } } } }
+        }.GetNewClosure()
+
+        $adapter = New-DeliveryQueueGhAdapter -InvokeGh $fake
+        $result = @(& $adapter.GetSubIssues -Repository 'o/r' -Epic 5)
+
+        $result.Count | Should -Be 2
+        $result[0].number | Should -Be 1
+        $result[1].number | Should -Be 2
+        $state.call | Should -Be 2
+    }
 }
 
 Describe 'Get-QueueSnapshot.ps1 (CLI)' {

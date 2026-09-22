@@ -41,6 +41,7 @@ function New-DeliveryQueueGhAdapter {
         $split = $Repository -split '/'
         $repoOwner = $split[0]
         $repoName = $split[1]
+        $invokeGh = $InvokeGh
         $query = 'query($owner:String!,$name:String!,$number:Int!,$after:String){repository(owner:$owner,name:$name){issue(number:$number){subIssues(first:100,after:$after){pageInfo{hasNextPage endCursor}nodes{number id title state stateReason labels(first:100){nodes{name}} blockedBy(first:100){nodes{number}}}}}}}'
         $fetch = {
             param($cursor)
@@ -48,7 +49,7 @@ function New-DeliveryQueueGhAdapter {
             if (-not [string]::IsNullOrWhiteSpace([string]$cursor)) {
                 $arguments += @('-f', "after=$cursor")
             }
-            $data = & $InvokeGh -Arguments $arguments
+            $data = & $invokeGh -Arguments $arguments
             $connection = $data.data.repository.issue.subIssues
             $items = @()
             foreach ($node in @($connection.nodes)) {
