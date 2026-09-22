@@ -90,8 +90,8 @@ export const marqueeItems: string[] = [
 ];
 
 export const navItems: NavItem[] = [
-  { id: 'nav-projetos', label: 'Projetos', href: '#projetos' },
   { id: 'nav-atuacao', label: 'Atuação', href: '#atuacao' },
+  { id: 'nav-projetos', label: 'Projetos', href: '#projetos' },
   { id: 'nav-stack', label: 'Stack', href: '#stack' },
   { id: 'nav-textos', label: 'Textos', href: '#textos' },
   { id: 'nav-sobre', label: 'Sobre', href: '/posts/about-me/' },
@@ -229,6 +229,40 @@ export const writing: WritingItem[] = [
     href: '/three/boxes/',
   },
 ];
+
+export interface SectionMeta {
+  index: string;
+  label: string;
+  title: string;
+  description: string;
+}
+
+export const sectionMeta = {
+  atuacao: {
+    index: '01',
+    label: 'Atuação',
+    title: 'No que eu trabalho',
+    description: 'Desenvolvimento fullstack com TypeScript, consultoria de IA e estudo contínuo.',
+  },
+  projetos: {
+    index: '02',
+    label: 'Projetos',
+    title: 'Projetos e evidências',
+    description: 'Trabalhos reais, com o papel exercido e links quando disponíveis.',
+  },
+  stack: {
+    index: '03',
+    label: 'Stack',
+    title: 'Ferramentas que uso',
+    description: 'Tecnologias do dia a dia e o que estou aprendendo agora.',
+  },
+  textos: {
+    index: '04',
+    label: 'Textos',
+    title: 'Textos e experimentos',
+    description: 'Páginas e experimentos publicados neste site.',
+  },
+} satisfies Record<string, SectionMeta>;
 
 export const footer = {
   tagline: 'Desenvolvedor fullstack com TypeScript. Consultoria de IA pela Hexeract AI LLC.',

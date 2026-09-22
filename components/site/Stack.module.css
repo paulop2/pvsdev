@@ -1,0 +1,42 @@
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 1.8rem;
+}
+
+.groupTitle {
+  margin-bottom: 0.9rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-soft);
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pill {
+  padding: 0.6rem 1.15rem;
+  border: 1px solid rgba(245, 241, 234, 0.1);
+  border-radius: var(--radius-pill);
+  background: var(--bg-1);
+  color: var(--text);
+  font-size: 1rem;
+  transition:
+    color var(--duration-hover) var(--ease-default),
+    border-color var(--duration-hover) var(--ease-default),
+    background-color var(--duration-hover) var(--ease-default);
+}
+
+.pill:hover {
+  color: var(--accent-soft);
+  border-color: rgba(74, 222, 128, 0.45);
+  background: rgba(74, 222, 128, 0.09);
+}
