@@ -17,5 +17,5 @@
   },
   "completionWithoutCode": "requires-evidence",
   "workerTimeoutMinutes": 60,
-  "worktreeRoot": ".."
+  "worktreeRoot": ".worktrees"
 }
