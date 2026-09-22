@@ -1,5 +1,6 @@
 Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'DeliveryQueue.Resolver.ps1')
+. (Join-Path $PSScriptRoot 'DeliveryQueue.Common.ps1')
 . (Join-Path $PSScriptRoot 'DeliveryQueue.Pages.ps1')
 . (Join-Path $PSScriptRoot 'DeliveryQueue.Collector.ps1')
 
@@ -7,11 +8,11 @@ function Invoke-GhJson {
     [CmdletBinding()]
     param([Parameter(Mandatory)] [string[]]$Arguments)
 
-    $output = & gh @Arguments 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "gh falhou ($LASTEXITCODE): $($output -join ' ')"
+    $result = Invoke-Process -FilePath 'gh' -Arguments $Arguments
+    if ([int]$result.exitCode -ne 0) {
+        throw "gh falhou ($($result.exitCode)): $($result.output)"
     }
-    $text = (($output | ForEach-Object { [string]$_ }) -join "`n")
+    $text = [string]$result.output
     if ([string]::IsNullOrWhiteSpace($text)) { return $null }
     return ($text | ConvertFrom-Json)
 }

@@ -26,6 +26,9 @@ Describe 'ConvertTo-CommandLineArgument' {
     It 'cita argumento com espaco' {
         ConvertTo-CommandLineArgument -Value 'a b' | Should -Be '"a b"'
     }
+    It 'escapa aspas para preservar JSON no comando nativo' {
+        ConvertTo-CommandLineArgument -Value '{"a":"b"}' | Should -Be '"{\"a\":\"b\"}"'
+    }
 }
 
 Describe 'Deliver-Queue.ps1 (CLI)' {

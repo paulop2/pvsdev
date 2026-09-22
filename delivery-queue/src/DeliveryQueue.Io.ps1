@@ -1,61 +1,10 @@
 Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'DeliveryQueue.Resolver.ps1')
+. (Join-Path $PSScriptRoot 'DeliveryQueue.Common.ps1')
 . (Join-Path $PSScriptRoot 'DeliveryQueue.Attempt.ps1')
 . (Join-Path $PSScriptRoot 'DeliveryQueue.Collector.ps1')
 . (Join-Path $PSScriptRoot 'DeliveryQueue.Lock.ps1')
 . (Join-Path $PSScriptRoot 'DeliveryQueue.Gh.ps1')
-
-function ConvertTo-CommandLineArgument {
-    [CmdletBinding()]
-    param([AllowNull()] [string]$Value)
-
-    $text = [string]$Value
-    if ($text -match '[\s"]') {
-        $escaped = $text -replace '\\', '\\\\' -replace '"', '\"'
-        return '"' + $escaped + '"'
-    }
-    return $text
-}
-
-function Invoke-Process {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)] [string]$FilePath,
-        [AllowEmptyCollection()] [string[]]$Arguments = @(),
-        [AllowNull()] [string]$WorkingDirectory,
-        [int]$TimeoutSeconds = 0
-    )
-
-    $info = New-Object System.Diagnostics.ProcessStartInfo
-    $info.FileName = $FilePath
-    $info.Arguments = (@($Arguments | ForEach-Object { ConvertTo-CommandLineArgument -Value $_ }) -join ' ')
-    $info.UseShellExecute = $false
-    $info.RedirectStandardOutput = $true
-    $info.RedirectStandardError = $true
-    $info.CreateNoWindow = $true
-    if (-not [string]::IsNullOrWhiteSpace($WorkingDirectory)) { $info.WorkingDirectory = $WorkingDirectory }
-
-    $process = New-Object System.Diagnostics.Process
-    $process.StartInfo = $info
-    $process.Start() | Out-Null
-    $stdout = $process.StandardOutput.ReadToEndAsync()
-    $stderr = $process.StandardError.ReadToEndAsync()
-
-    $timedOut = $false
-    if ($TimeoutSeconds -gt 0) {
-        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-            $timedOut = $true
-            & taskkill /PID $process.Id /T /F 2>&1 | Out-Null
-            $process.WaitForExit()
-        }
-    }
-    else {
-        $process.WaitForExit()
-    }
-
-    $output = ($stdout.Result + $stderr.Result)
-    return [pscustomobject]@{ exitCode = $process.ExitCode; timedOut = $timedOut; output = $output }
-}
 
 function Invoke-GitIn {
     [CmdletBinding()]
@@ -126,6 +75,9 @@ function New-DeliveryQueueIoAdapter {
         $existing = (& $invokeGitIn -WorkingDirectory (Get-Location).Path -Arguments @('worktree', 'list', '--porcelain'))
         if ($existing -match [regex]::Escape("branch refs/heads/$Branch")) {
             return [pscustomobject]@{ path = $path; branch = $Branch }
+        }
+        if (-not [string]::IsNullOrWhiteSpace([string]$Root) -and -not (Test-Path -LiteralPath $Root)) {
+            New-Item -ItemType Directory -Force -Path $Root | Out-Null
         }
         & $invokeGitIn -WorkingDirectory (Get-Location).Path -Arguments @('worktree', 'add', $path, '-b', $Branch, "origin/$Base") | Out-Null
         return [pscustomobject]@{ path = $path; branch = $Branch }

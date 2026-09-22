@@ -117,6 +117,20 @@ Describe 'New-DeliveryQueueGhAdapter' {
     }
 }
 
+Describe 'Invoke-GhJson' {
+    It 'interpreta o JSON do processo preservando os argumentos originais' {
+        Mock Invoke-Process { [pscustomobject]@{ exitCode = 0; timedOut = $false; output = '{"attemptId":"abc","n":1}' } }
+        $r = Invoke-GhJson -Arguments @('api', 'x', '-f', 'body={"a":"b c"}')
+        $r.attemptId | Should -Be 'abc'
+        Should -Invoke Invoke-Process -Exactly 1 -ParameterFilter { $FilePath -eq 'gh' -and ($Arguments -contains 'body={"a":"b c"}') }
+    }
+
+    It 'lanca quando o processo falha' {
+        Mock Invoke-Process { [pscustomobject]@{ exitCode = 1; timedOut = $false; output = 'boom' } }
+        { Invoke-GhJson -Arguments @('api', 'x') } | Should -Throw
+    }
+}
+
 Describe 'Get-QueueSnapshot.ps1 (CLI)' {
     It 'retorna 4 quando a politica esta ausente' {
         & "$PSScriptRoot/../src/Get-QueueSnapshot.ps1" -Epic 9 -Repository 'o/r' -PolicyPath (Join-Path $TestDrive 'nao-existe.json') | Out-Null
