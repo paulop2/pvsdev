@@ -6,11 +6,7 @@ import styles from '@/components/site/Hero.module.css';
 const codeLines = [
   "import { ship } from '@pvs/edge';",
   '',
-  'const stack = [',
-  "  'typescript',",
-  "  'react',",
-  "  'workers',",
-  '];',
+  "const stack = ['typescript', 'react', 'workers'];",
   '',
   'export function build(product: Product) {',
   '  return ship(product, { edge: true });',
