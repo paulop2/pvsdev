@@ -1,7 +1,7 @@
 ---
 description: Entrega uma issue da fila de delivery de ponta a ponta no worktree designado. Implementa, roda os checks exigidos, faz review adversarial, corrige e publica o registro de tentativa. Nao pergunta ao usuario.
 mode: subagent
-model: opencode-go/deepseek-v4.1
+model: opencode-go/deepseek-v4.1-flash
 permission:
   question: deny
   doom_loop: deny
