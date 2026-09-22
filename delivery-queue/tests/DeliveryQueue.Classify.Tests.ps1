@@ -83,6 +83,14 @@ Describe 'Get-IssueStatus' {
         $r.NextAction | Should -Be 'reconcile'
     }
 
+    It 'reconcilia issue fechada sem verificacao pos-merge em vez de parar' {
+        $node = New-Node -Number 1 -State 'CLOSED' -StateReason 'COMPLETED' -Pr (New-Pr -State 'MERGED')
+        $r = Get-IssueStatus -Node $node -Index @{} -Policy (New-Policy -Verify $true) -DefaultHeadSha 'abc'
+        $r.Status | Should -Be 'blocked'
+        $r.Reason | Should -Be 'parent_unverified'
+        $r.NextAction | Should -Be 'reconcile'
+    }
+
     It 'exclui issue fechada como not planned' {
         $node = New-Node -Number 1 -State 'CLOSED' -StateReason 'NOT_PLANNED'
         $r = Get-IssueStatus -Node $node -Index @{} -Policy (New-Policy) -DefaultHeadSha 'abc'
