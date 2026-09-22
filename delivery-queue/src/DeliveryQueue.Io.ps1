@@ -197,7 +197,10 @@ function New-DeliveryQueueIoAdapter {
         param($Repository, $Branch, $Commands)
         & $invokeGitIn -WorkingDirectory (Get-Location).Path -Arguments @('fetch', 'origin', $Branch) | Out-Null
         $baseSha = (& $invokeGitIn -WorkingDirectory (Get-Location).Path -Arguments @('rev-parse', "origin/$Branch")).Trim()
-        $temp = Join-Path ([System.IO.Path]::GetTempPath()) ("dq-verify-" + [Guid]::NewGuid().ToString('N'))
+        $root = [string](& $getProp -Object $Policy -Name 'worktreeRoot' -Default '.worktrees')
+        if ([string]::IsNullOrWhiteSpace($root)) { $root = '.worktrees' }
+        if (-not (Test-Path -LiteralPath $root)) { New-Item -ItemType Directory -Force -Path $root | Out-Null }
+        $temp = Join-Path $root ("dq-verify-" + [Guid]::NewGuid().ToString('N'))
         & $invokeGitIn -WorkingDirectory (Get-Location).Path -Arguments @('worktree', 'add', '--detach', $temp, "origin/$Branch") | Out-Null
         $result = 'pass'
         try {
