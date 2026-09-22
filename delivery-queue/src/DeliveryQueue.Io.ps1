@@ -94,12 +94,12 @@ function New-DeliveryQueueIoAdapter {
     $adapter | Add-Member NoteProperty UpsertAttempt ({
         param($Repository, $Issue, $Record)
         $body = & $toAttempt -Record $Record
-        $data = & $invokeGhJson -Arguments @('issue', 'view', [string]$Issue, '--repo', $Repository, '--json', 'comments')
+        $comments = & $invokeGhJson -Arguments @('api', "repos/$Repository/issues/$Issue/comments")
         $targetId = $null
-        foreach ($comment in @($data.comments)) {
+        foreach ($comment in @($comments)) {
             $commentId = & $getProp -Object $comment -Name 'id'
             if ($null -eq $commentId) { continue }
-            $parsed = & $fromAttempt -Body ([string]$comment.body)
+            $parsed = & $fromAttempt -Body ([string](& $getProp -Object $comment -Name 'body'))
             if ($parsed -and ([string](& $getProp -Object $parsed -Name 'attemptId')) -eq [string](& $getProp -Object $Record -Name 'attemptId')) {
                 $targetId = $commentId
                 break
