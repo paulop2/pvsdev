@@ -1,0 +1,19 @@
+.stage {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  margin-inline: auto;
+  aspect-ratio: 1 / 1;
+}
+
+.inner {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.inner > * {
+  width: 100%;
+  height: 100%;
+}
