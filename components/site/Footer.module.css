@@ -1,0 +1,118 @@
+.footer {
+  border-top: 1px solid var(--line);
+  background: var(--bg-0);
+}
+
+.inner {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2.5rem;
+  width: 100%;
+  max-width: var(--content-max);
+  margin-inline: auto;
+  padding-inline: var(--gutter-x);
+  padding-block: 4rem 2.5rem;
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  max-width: 34rem;
+}
+
+.brandLink {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.role {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: var(--muted-soft);
+}
+
+.tagline {
+  color: var(--muted);
+  font-size: 0.96rem;
+  line-height: 1.6;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.columnTitle {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-soft);
+}
+
+.columnList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.link {
+  display: inline-block;
+  padding: 0.2rem 0;
+  font-family: var(--font-mono);
+  font-size: 0.84rem;
+  color: var(--muted);
+  transition: color var(--duration-hover) var(--ease-default);
+}
+
+.link:hover,
+.link:focus-visible {
+  color: var(--accent-soft);
+}
+
+.bottom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: var(--content-max);
+  margin-inline: auto;
+  padding: 1.5rem var(--gutter-x) 2.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.copy {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--muted-soft);
+}
+
+.external {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--muted-soft);
+  transition: color var(--duration-hover) var(--ease-default);
+}
+
+.external:hover,
+.external:focus-visible {
+  color: var(--accent-soft);
+}
+
+@media (min-width: 720px) {
+  .inner {
+    grid-template-columns: 1.5fr repeat(2, minmax(0, 1fr));
+    gap: 2rem;
+  }
+}
