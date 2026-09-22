@@ -1,7 +1,7 @@
 ---
 description: Corrige achados bloqueantes do reviewer no diff da delivery queue, sem ampliar o escopo. Roda verificacoes apos corrigir.
 mode: subagent
-model: opencode-go/deepseek-v4.1
+model: opencode-go/deepseek-v4.1-flash
 permission:
   question: deny
   doom_loop: deny
