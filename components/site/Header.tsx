@@ -106,6 +106,7 @@ export default function Header() {
                 className={styles.overlayLink}
                 style={{ '--delay': `${index * 40}ms` } as React.CSSProperties}
                 onClick={() => setOpen(false)}
+                autoFocus={index === 0}
               >
                 <span className={styles.overlayIndex} aria-hidden="true">
                   {String(index + 1).padStart(2, '0')}

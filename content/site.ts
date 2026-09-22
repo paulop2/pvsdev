@@ -90,10 +90,10 @@ export const marqueeItems: string[] = [
 ];
 
 export const navItems: NavItem[] = [
-  { id: 'nav-atuacao', label: 'Atuação', href: '#atuacao' },
-  { id: 'nav-projetos', label: 'Projetos', href: '#projetos' },
-  { id: 'nav-stack', label: 'Stack', href: '#stack' },
-  { id: 'nav-textos', label: 'Textos', href: '#textos' },
+  { id: 'nav-atuacao', label: 'Atuação', href: '/#atuacao' },
+  { id: 'nav-projetos', label: 'Projetos', href: '/#projetos' },
+  { id: 'nav-stack', label: 'Stack', href: '/#stack' },
+  { id: 'nav-textos', label: 'Textos', href: '/#textos' },
   { id: 'nav-sobre', label: 'Sobre', href: '/posts/about-me/' },
 ];
 
@@ -112,7 +112,7 @@ export const hero = {
   description:
     'Trabalho com TypeScript no front e no back — de interfaces React/Next.js a APIs em Cloudflare Workers. Também presto consultoria de IA pela Hexeract AI LLC.',
   ctas: [
-    { id: 'cta-projetos', label: 'Ver projetos', href: '#projetos', variant: 'primary' },
+    { id: 'cta-projetos', label: 'Ver projetos', href: '/#projetos', variant: 'primary' },
     chatCta,
   ] as Cta[],
 } as const;
@@ -208,7 +208,7 @@ export const writing: WritingItem[] = [
     id: 'writing-testes',
     index: '03',
     title: 'Testes',
-    summary: 'Página de experimentos com Three.js e outras tecnologias.',
+    summary: 'Hub de links para experimentos com Three.js e arte.',
     type: 'Experimento',
     href: '/posts/first-post/',
   },
@@ -271,10 +271,10 @@ export const footer = {
       id: 'footer-pages',
       title: 'Navegação',
       links: [
-        { label: 'Projetos', href: '#projetos' },
-        { label: 'Atuação', href: '#atuacao' },
-        { label: 'Stack', href: '#stack' },
-        { label: 'Textos', href: '#textos' },
+        { label: 'Projetos', href: '/#projetos' },
+        { label: 'Atuação', href: '/#atuacao' },
+        { label: 'Stack', href: '/#stack' },
+        { label: 'Textos', href: '/#textos' },
         { label: 'Sobre', href: '/posts/about-me/' },
       ],
     },
@@ -283,7 +283,7 @@ export const footer = {
       title: 'Ações',
       links: [
         { label: 'Conversar com meu assistente', href: '/chat/' },
-        { label: 'Voltar ao topo', href: '#top' },
+        { label: 'Voltar ao topo', href: '/#top' },
       ],
     },
   ] as FooterColumn[],

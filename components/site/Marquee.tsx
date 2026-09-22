@@ -26,7 +26,7 @@ export default function Marquee() {
   const isPaused = paused || !enabled;
 
   return (
-    <div className={styles.marquee}>
+    <aside className={styles.marquee} aria-label="Atuação, stack e localização">
       <div className={styles.viewport}>
         <div className={styles.track} data-paused={isPaused ? 'true' : undefined}>
           <Group />
@@ -42,6 +42,6 @@ export default function Marquee() {
       >
         <span aria-hidden="true">{isPaused ? '▶' : '❙❙'}</span>
       </button>
-    </div>
+    </aside>
   );
 }

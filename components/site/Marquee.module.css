@@ -50,7 +50,7 @@
   font-size: 0.72rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--muted-soft);
+  color: rgba(245, 241, 234, 0.62);
   white-space: nowrap;
 }
 
