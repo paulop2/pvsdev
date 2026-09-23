@@ -24,6 +24,8 @@
     "fallbackEligibility": { "type": ["string", "null"] },
     "requiredChecks": { "type": "array", "items": { "type": "string" } },
     "requiredRemoteChecks": { "type": "array", "items": { "type": "string" } },
+    "postMergeSetupCommands": { "type": "array", "items": { "type": "string" } },
+    "postMergeRetries": { "type": "integer", "minimum": 0 },
     "merge": {
       "type": "object",
       "required": ["method", "requireChecksOnPr", "verifyDefaultBranchAfterMerge", "authorizedByLocalRules", "allowAdminBypass"],

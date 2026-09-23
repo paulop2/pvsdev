@@ -85,3 +85,34 @@ function Invoke-Process {
     $output = ($stdout.Result + $stderr.Result)
     return [pscustomobject]@{ exitCode = $process.ExitCode; timedOut = $timedOut; output = $output }
 }
+
+function Invoke-VerifyCommands {
+    [CmdletBinding()]
+    param(
+        [AllowEmptyCollection()] [string[]]$Commands = @(),
+        [AllowEmptyCollection()] [string[]]$SetupCommands = @(),
+        [Parameter(Mandatory)] [string]$WorkingDirectory,
+        [int]$Retries = 0,
+        [scriptblock]$InvokeProcess = $null,
+        [scriptblock]$Sleep = $null
+    )
+
+    if ($Retries -lt 0) { $Retries = 0 }
+    if (-not $InvokeProcess) {
+        $InvokeProcess = { param($FilePath, $Arguments, $WorkingDirectory, $TimeoutSeconds) Invoke-Process -FilePath $FilePath -Arguments $Arguments -WorkingDirectory $WorkingDirectory -TimeoutSeconds $TimeoutSeconds }.GetNewClosure()
+    }
+    if (-not $Sleep) {
+        $Sleep = { param($Seconds) Start-Sleep -Seconds $Seconds }.GetNewClosure()
+    }
+
+    foreach ($command in @(@($SetupCommands) + @($Commands))) {
+        $run = $null
+        for ($attempt = 0; $attempt -le $Retries; $attempt++) {
+            if ($attempt -gt 0) { & $Sleep 3 }
+            $run = & $InvokeProcess -FilePath 'cmd.exe' -Arguments @('/d', '/s', '/c', $command) -WorkingDirectory $WorkingDirectory -TimeoutSeconds 0
+            if ($run.exitCode -eq 0) { break }
+        }
+        if ($null -eq $run -or $run.exitCode -ne 0) { return 'fail' }
+    }
+    return 'pass'
+}

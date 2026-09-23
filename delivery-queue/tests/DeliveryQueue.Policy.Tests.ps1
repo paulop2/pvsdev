@@ -83,4 +83,22 @@ Describe 'Test-DeliveryQueuePolicy' {
         $p = $base.PSObject.Copy(); $p.project = $null; $p.fallbackEligibility = 'label:agent-ready'
         (Test-DeliveryQueuePolicy -Policy $p).Count | Should -Be 0
     }
+
+    It 'rejeita postMergeRetries negativo' {
+        $p = $base.PSObject.Copy(); $p | Add-Member -NotePropertyName postMergeRetries -NotePropertyValue -1 -Force
+        (Test-DeliveryQueuePolicy -Policy $p) | Should -Match 'postMergeRetries'
+    }
+
+    It 'aceita postMergeRetries e setup validos' {
+        $p = $base.PSObject.Copy()
+        $p | Add-Member -NotePropertyName postMergeRetries -NotePropertyValue 2 -Force
+        $p | Add-Member -NotePropertyName postMergeSetupCommands -NotePropertyValue @('npm ci') -Force
+        (Test-DeliveryQueuePolicy -Policy $p).Count | Should -Be 0
+    }
+
+    It 'rejeita postMergeSetupCommands que nao e array' {
+        $p = $base.PSObject.Copy()
+        $p | Add-Member -NotePropertyName postMergeSetupCommands -NotePropertyValue ([pscustomobject]@{ a = 1 }) -Force
+        (Test-DeliveryQueuePolicy -Policy $p) | Should -Match 'postMergeSetupCommands'
+    }
 }

@@ -8,6 +8,8 @@
   "fallbackEligibility": "label:delivery-queue-ready",
   "requiredChecks": ["npm run typecheck", "npm run build"],
   "requiredRemoteChecks": [],
+  "postMergeSetupCommands": ["npm ci --no-audit --no-fund"],
+  "postMergeRetries": 2,
   "merge": {
     "method": "merge",
     "requireChecksOnPr": true,
