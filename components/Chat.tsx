@@ -5,6 +5,7 @@ import Script from 'next/script';
 import {
   ActionBarPrimitive,
   AssistantRuntimeProvider,
+  AttachmentPrimitive,
   AuiIf,
   BranchPickerPrimitive,
   ComposerPrimitive,
@@ -14,11 +15,16 @@ import {
   ThreadListPrimitive,
   ThreadPrimitive,
   useAui,
+  useAuiEvent,
   useAuiState,
 } from '@assistant-ui/react';
 import { useAISDKError, useChatRuntime } from '@assistant-ui/ai-sdk';
 import { MarkdownText } from '@/components/MarkdownText';
 import { TurnstileChatTransport } from '@/components/chatTransport';
+import {
+  createWorkerAttachmentAdapter,
+  previewAttachmentText,
+} from '@/components/chatAttachments';
 import { resolveMessageKind } from '@/components/chatMessages';
 import {
   normalizeThreadTitle,
@@ -89,6 +95,35 @@ function ChatError() {
   return (
     <p className={styles.error} role="alert">
       {errorMessage(error)}
+    </p>
+  );
+}
+
+function attachmentErrorMessage(reason: string, message: string, contentType?: string): string {
+  if (reason === 'not-accepted') {
+    const label = contentType && contentType.length > 0 ? contentType : 'tipo desconhecido';
+    return `Anexo recusado (${label}): o assistente so processa arquivos de texto.`;
+  }
+  return message.length > 0 ? message : 'Nao foi possivel anexar o arquivo.';
+}
+
+function AttachmentError() {
+  const [message, setMessage] = useState('');
+  useAuiEvent({ scope: '*', event: 'composer.attachmentAddError' }, (payload) => {
+    setMessage(attachmentErrorMessage(payload.reason, payload.message, payload.contentType));
+  });
+  useAuiEvent({ scope: '*', event: 'composer.attachmentAdd' }, () => {
+    setMessage('');
+  });
+  useAuiEvent({ scope: '*', event: 'composer.send' }, () => {
+    setMessage('');
+  });
+  if (message.length === 0) {
+    return null;
+  }
+  return (
+    <p className={styles.attachmentError} role="alert">
+      {message}
     </p>
   );
 }
@@ -350,7 +385,12 @@ export default function Chat() {
     [resetWidget, initializeThread],
   );
 
-  const runtime = useChatRuntime({ transport });
+  const attachmentAdapter = useMemo(() => createWorkerAttachmentAdapter(), []);
+
+  const runtime = useChatRuntime({
+    transport,
+    adapters: { attachments: attachmentAdapter },
+  });
 
   useEffect(() => {
     runtimeRef.current = runtime;
@@ -404,16 +444,51 @@ export default function Chat() {
                 </ThreadPrimitive.Messages>
               </ThreadPrimitive.Viewport>
               <ChatError />
+              <AttachmentError />
               <ComposerPrimitive.Root className={styles.form}>
+                <div className={styles.attachments}>
+                  <ComposerPrimitive.Attachments>
+                    {({ attachment }) => (
+                      <AttachmentPrimitive.Root className={styles.attachment}>
+                        <div className={styles.attachmentHeader}>
+                          <span className={styles.attachmentName}>
+                            <AttachmentPrimitive.Name />
+                          </span>
+                          <AttachmentPrimitive.Remove
+                            className={styles.attachmentRemove}
+                            aria-label={`Remover anexo ${attachment.name}`}
+                          >
+                            Remover
+                          </AttachmentPrimitive.Remove>
+                        </div>
+                        {attachment.status.type === 'incomplete' ? (
+                          <p className={styles.attachmentError}>{attachment.status.message}</p>
+                        ) : (
+                          <pre className={styles.attachmentPreview}>
+                            {previewAttachmentText(attachment.content)}
+                          </pre>
+                        )}
+                      </AttachmentPrimitive.Root>
+                    )}
+                  </ComposerPrimitive.Attachments>
+                </div>
                 <label className={styles.label} htmlFor="chat-input">
                   Mensagem
                 </label>
-                <ComposerPrimitive.Input
-                  id="chat-input"
-                  className={styles.input}
-                  placeholder="Pergunte sobre o Paulo..."
-                />
-                <ComposerPrimitive.Send className={styles.send}>Enviar</ComposerPrimitive.Send>
+                <div className={styles.composerRow}>
+                  <ComposerPrimitive.AddAttachment
+                    className={styles.attach}
+                    aria-label="Anexar arquivo de texto"
+                  >
+                    Anexar
+                  </ComposerPrimitive.AddAttachment>
+                  <ComposerPrimitive.Input
+                    id="chat-input"
+                    className={styles.input}
+                    placeholder="Pergunte sobre o Paulo..."
+                  />
+                  <ComposerPrimitive.Send className={styles.send}>Enviar</ComposerPrimitive.Send>
+                </div>
               </ComposerPrimitive.Root>
             </ThreadPrimitive.Root>
           </div>

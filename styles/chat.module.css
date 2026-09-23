@@ -545,14 +545,84 @@
 }
 
 .form {
-  display: grid;
-  grid-template-columns: 1fr auto;
+  display: flex;
+  flex-direction: column;
   gap: 0.5rem;
 }
 
 .label {
-  grid-column: 1 / -1;
   font-size: 0.8rem;
+}
+
+.attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.attachment {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  border: 1px solid #8884;
+  border-radius: 8px;
+  padding: 0.5rem;
+}
+
+.attachmentHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.attachmentName {
+  font-size: 0.85rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.attachmentRemove {
+  border: 1px solid #8884;
+  border-radius: 6px;
+  background: transparent;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+}
+
+.attachmentPreview {
+  margin: 0;
+  max-height: 6rem;
+  overflow: auto;
+  padding: 0.4rem;
+  border-radius: 6px;
+  background: #8881;
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.attachmentError {
+  color: #c53030;
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.composerRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.5rem;
+}
+
+.attach {
+  padding: 0.6rem 0.9rem;
+  border: 1px solid #8884;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
 }
 
 .input {
