@@ -3,21 +3,37 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Script from 'next/script';
 import {
+  ActionBarPrimitive,
   AssistantRuntimeProvider,
   AttachmentPrimitive,
   AuiIf,
+  BranchPickerPrimitive,
   ComposerPrimitive,
   MessagePrimitive,
+  ThreadListItemMorePrimitive,
+  ThreadListItemPrimitive,
+  ThreadListPrimitive,
   ThreadPrimitive,
+  useAui,
   useAuiEvent,
+  useAuiState,
 } from '@assistant-ui/react';
 import { useAISDKError, useChatRuntime } from '@assistant-ui/ai-sdk';
+import { MarkdownText } from '@/components/MarkdownText';
 import { TurnstileChatTransport } from '@/components/chatTransport';
 import {
   createWorkerAttachmentAdapter,
   previewAttachmentText,
 } from '@/components/chatAttachments';
+import { resolveMessageKind } from '@/components/chatMessages';
+import {
+  normalizeThreadTitle,
+  THREAD_TITLE_FALLBACK,
+  threadTitleFallback,
+} from '@/components/chatThreads';
 import styles from '@/styles/chat.module.css';
+
+const ASSISTANT_PARTS = { Text: MarkdownText };
 
 declare global {
   interface Window {
@@ -112,10 +128,214 @@ function AttachmentError() {
   );
 }
 
+function BranchPicker() {
+  return (
+    <BranchPickerPrimitive.Root
+      hideWhenSingleBranch
+      className={styles.branchPicker}
+    >
+      <BranchPickerPrimitive.Previous
+        className={styles.branchButton}
+        aria-label="Ramo anterior"
+      >
+        &lsaquo;
+      </BranchPickerPrimitive.Previous>
+      <span className={styles.branchPosition}>
+        <BranchPickerPrimitive.Number /> de <BranchPickerPrimitive.Count />
+      </span>
+      <BranchPickerPrimitive.Next
+        className={styles.branchButton}
+        aria-label="Proximo ramo"
+      >
+        &rsaquo;
+      </BranchPickerPrimitive.Next>
+    </BranchPickerPrimitive.Root>
+  );
+}
+
+function UserMessage() {
+  return (
+    <MessagePrimitive.Root className={`${styles.message} ${styles.user}`}>
+      <MessagePrimitive.Parts />
+      <div className={styles.messageFooter}>
+        <ActionBarPrimitive.Root className={styles.actions} hideWhenRunning>
+          <ActionBarPrimitive.Edit className={styles.action}>Editar</ActionBarPrimitive.Edit>
+        </ActionBarPrimitive.Root>
+        <BranchPicker />
+      </div>
+    </MessagePrimitive.Root>
+  );
+}
+
+function AssistantMessage() {
+  return (
+    <MessagePrimitive.Root className={`${styles.message} ${styles.assistant}`}>
+      <MessagePrimitive.Parts components={ASSISTANT_PARTS} />
+      <div className={styles.messageFooter}>
+        <ActionBarPrimitive.Root className={styles.actions} hideWhenRunning>
+          <ActionBarPrimitive.Reload className={styles.action}>Regenerar</ActionBarPrimitive.Reload>
+        </ActionBarPrimitive.Root>
+        <BranchPicker />
+      </div>
+    </MessagePrimitive.Root>
+  );
+}
+
+function EditComposer() {
+  return (
+    <MessagePrimitive.Root className={`${styles.message} ${styles.editMessage}`}>
+      <ComposerPrimitive.Root className={styles.editForm}>
+        <label className={styles.label} htmlFor="chat-edit-input">
+          Editar mensagem
+        </label>
+        <ComposerPrimitive.Input
+          id="chat-edit-input"
+          className={styles.input}
+          aria-label="Editar mensagem"
+        />
+        <div className={styles.editActions}>
+          <ComposerPrimitive.Cancel className={styles.cancel}>Cancelar</ComposerPrimitive.Cancel>
+          <ComposerPrimitive.Send className={styles.send}>Salvar</ComposerPrimitive.Send>
+        </div>
+      </ComposerPrimitive.Root>
+    </MessagePrimitive.Root>
+  );
+}
+
+function ThreadRenameForm({
+  title,
+  onDone,
+}: {
+  title: string;
+  onDone: () => void;
+}) {
+  const aui = useAui();
+  const [draft, setDraft] = useState(title);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  const commit = () => {
+    const next = normalizeThreadTitle(draft, title);
+    if (next !== null) {
+      aui.threadListItem.rename(next);
+    }
+    onDone();
+  };
+
+  return (
+    <form
+      className={styles.renameForm}
+      onSubmit={event => {
+        event.preventDefault();
+        commit();
+      }}
+    >
+      <input
+        ref={inputRef}
+        className={styles.renameInput}
+        value={draft}
+        aria-label="Renomear conversa"
+        onChange={event => setDraft(event.target.value)}
+        onKeyDown={event => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            onDone();
+          }
+        }}
+      />
+      <button type="submit" className={styles.renameSave}>
+        Salvar
+      </button>
+      <button type="button" className={styles.renameCancel} onClick={onDone}>
+        Cancelar
+      </button>
+    </form>
+  );
+}
+
+function ThreadListItem() {
+  const [editing, setEditing] = useState(false);
+  const aui = useAui();
+  const title = useAuiState(state => state.threadListItem.title);
+  const isMain = useAuiState(
+    state => state.threads.mainThreadId === state.threadListItem.id,
+  );
+
+  if (editing) {
+    return (
+      <ThreadListItemPrimitive.Root className={styles.threadItem}>
+        <ThreadRenameForm
+          title={title ?? ''}
+          onDone={() => setEditing(false)}
+        />
+      </ThreadListItemPrimitive.Root>
+    );
+  }
+
+  return (
+    <ThreadListItemPrimitive.Root className={styles.threadItem}>
+      <ThreadListItemPrimitive.Trigger
+        className={styles.threadTrigger}
+        title={threadTitleFallback(title)}
+        aria-current={isMain ? 'true' : undefined}
+      >
+        <ThreadListItemPrimitive.Title fallback={THREAD_TITLE_FALLBACK} />
+      </ThreadListItemPrimitive.Trigger>
+      <ThreadListItemMorePrimitive.Root sharedFocusGroup>
+        <ThreadListItemMorePrimitive.Trigger
+          className={styles.threadMore}
+          aria-label="Opcoes da conversa"
+        >
+          &#8943;
+        </ThreadListItemMorePrimitive.Trigger>
+        <ThreadListItemMorePrimitive.Content className={styles.threadMenu}>
+          <ThreadListItemMorePrimitive.Item
+            className={styles.threadMenuItem}
+            onSelect={() => setEditing(true)}
+          >
+            Renomear
+          </ThreadListItemMorePrimitive.Item>
+          <ThreadListItemMorePrimitive.Separator
+            className={styles.threadMenuSeparator}
+          />
+          <ThreadListItemMorePrimitive.Item
+            className={`${styles.threadMenuItem} ${styles.threadMenuItemDanger}`}
+            onSelect={() => {
+              aui.threadListItem.delete();
+            }}
+          >
+            Excluir
+          </ThreadListItemMorePrimitive.Item>
+        </ThreadListItemMorePrimitive.Content>
+      </ThreadListItemMorePrimitive.Root>
+    </ThreadListItemPrimitive.Root>
+  );
+}
+
+function ThreadList() {
+  return (
+    <nav className={styles.threadList} aria-label="Conversas">
+      <ThreadListPrimitive.Root className={styles.threadListInner}>
+        <ThreadListPrimitive.New className={styles.newThread}>
+          Nova conversa
+        </ThreadListPrimitive.New>
+        <ThreadListPrimitive.Items>
+          {() => <ThreadListItem />}
+        </ThreadListPrimitive.Items>
+      </ThreadListPrimitive.Root>
+    </nav>
+  );
+}
+
 export default function Chat() {
   const tokenRef = useRef('');
   const widgetRef = useRef<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const runtimeRef = useRef<ReturnType<typeof useChatRuntime> | null>(null);
 
   const renderWidget = useCallback(() => {
     if (widgetRef.current) {
@@ -126,7 +346,7 @@ export default function Chat() {
     }
     widgetRef.current = window.turnstile.render(containerRef.current, {
       sitekey: SITE_KEY,
-      callback: (token) => {
+      callback: token => {
         tokenRef.current = token;
       },
       'expired-callback': () => {
@@ -142,14 +362,27 @@ export default function Chat() {
     }
   }, []);
 
+  const initializeThread = useCallback(async (threadId: string) => {
+    const item = runtimeRef.current?.threads.getItemById(threadId);
+    if (!item) {
+      return;
+    }
+    try {
+      await item.initialize();
+    } catch {
+      // Thread bookkeeping must not block the chat request.
+    }
+  }, []);
+
   const transport = useMemo(
     () =>
       new TurnstileChatTransport({
         api: `${API_URL}/chat`,
         getToken: () => tokenRef.current,
         onRequestSettled: resetWidget,
+        initializeThread,
       }),
-    [resetWidget],
+    [resetWidget, initializeThread],
   );
 
   const attachmentAdapter = useMemo(() => createWorkerAttachmentAdapter(), []);
@@ -158,6 +391,10 @@ export default function Chat() {
     transport,
     adapters: { attachments: attachmentAdapter },
   });
+
+  useEffect(() => {
+    runtimeRef.current = runtime;
+  }, [runtime]);
 
   useEffect(() => {
     if (window.turnstile) {
@@ -174,84 +411,88 @@ export default function Chat() {
   return (
     <div className={styles.chat}>
       <AssistantRuntimeProvider runtime={runtime}>
-        <ThreadPrimitive.Root className={styles.thread}>
-          <ThreadPrimitive.Viewport className={styles.messages}>
-            <AuiIf condition={(state) => state.thread.isEmpty}>
-              <div className={styles.suggestions}>
-                {SUGGESTIONS.map((suggestion) => (
-                  <ThreadPrimitive.Suggestion
-                    key={suggestion}
-                    prompt={suggestion}
-                    send
-                    className={styles.suggestion}
-                  >
-                    {suggestion}
-                  </ThreadPrimitive.Suggestion>
-                ))}
-              </div>
-            </AuiIf>
-            <ThreadPrimitive.Messages>
-              {({ message }) => (
-                <MessagePrimitive.Root
-                  className={
-                    message.role === 'user'
-                      ? `${styles.message} ${styles.user}`
-                      : `${styles.message} ${styles.assistant}`
-                  }
-                >
-                  <MessagePrimitive.Parts />
-                </MessagePrimitive.Root>
-              )}
-            </ThreadPrimitive.Messages>
-          </ThreadPrimitive.Viewport>
-          <ChatError />
-          <AttachmentError />
-          <ComposerPrimitive.Root className={styles.form}>
-            <div className={styles.attachments}>
-              <ComposerPrimitive.Attachments>
-                {({ attachment }) => (
-                  <AttachmentPrimitive.Root className={styles.attachment}>
-                    <div className={styles.attachmentHeader}>
-                      <span className={styles.attachmentName}>
-                        <AttachmentPrimitive.Name />
-                      </span>
-                      <AttachmentPrimitive.Remove
-                        className={styles.attachmentRemove}
-                        aria-label={`Remover anexo ${attachment.name}`}
+        <div className={styles.layout}>
+          <ThreadList />
+          <div className={styles.main}>
+            <ThreadPrimitive.Root className={styles.thread}>
+              <ThreadPrimitive.Viewport className={styles.messages}>
+                <AuiIf condition={(state) => state.thread.isEmpty}>
+                  <div className={styles.suggestions}>
+                    {SUGGESTIONS.map((suggestion) => (
+                      <ThreadPrimitive.Suggestion
+                        key={suggestion}
+                        prompt={suggestion}
+                        send
+                        className={styles.suggestion}
                       >
-                        Remover
-                      </AttachmentPrimitive.Remove>
-                    </div>
-                    {attachment.status.type === 'incomplete' ? (
-                      <p className={styles.attachmentError}>{attachment.status.message}</p>
-                    ) : (
-                      <pre className={styles.attachmentPreview}>
-                        {previewAttachmentText(attachment.content)}
-                      </pre>
+                        {suggestion}
+                      </ThreadPrimitive.Suggestion>
+                    ))}
+                  </div>
+                </AuiIf>
+                <ThreadPrimitive.Messages>
+                  {({ message }) => {
+                    switch (resolveMessageKind(message)) {
+                      case 'edit':
+                        return <EditComposer />;
+                      case 'user':
+                        return <UserMessage />;
+                      default:
+                        return <AssistantMessage />;
+                    }
+                  }}
+                </ThreadPrimitive.Messages>
+              </ThreadPrimitive.Viewport>
+              <ChatError />
+              <AttachmentError />
+              <ComposerPrimitive.Root className={styles.form}>
+                <div className={styles.attachments}>
+                  <ComposerPrimitive.Attachments>
+                    {({ attachment }) => (
+                      <AttachmentPrimitive.Root className={styles.attachment}>
+                        <div className={styles.attachmentHeader}>
+                          <span className={styles.attachmentName}>
+                            <AttachmentPrimitive.Name />
+                          </span>
+                          <AttachmentPrimitive.Remove
+                            className={styles.attachmentRemove}
+                            aria-label={`Remover anexo ${attachment.name}`}
+                          >
+                            Remover
+                          </AttachmentPrimitive.Remove>
+                        </div>
+                        {attachment.status.type === 'incomplete' ? (
+                          <p className={styles.attachmentError}>{attachment.status.message}</p>
+                        ) : (
+                          <pre className={styles.attachmentPreview}>
+                            {previewAttachmentText(attachment.content)}
+                          </pre>
+                        )}
+                      </AttachmentPrimitive.Root>
                     )}
-                  </AttachmentPrimitive.Root>
-                )}
-              </ComposerPrimitive.Attachments>
-            </div>
-            <label className={styles.label} htmlFor="chat-input">
-              Mensagem
-            </label>
-            <div className={styles.composerRow}>
-              <ComposerPrimitive.AddAttachment
-                className={styles.attach}
-                aria-label="Anexar arquivo de texto"
-              >
-                Anexar
-              </ComposerPrimitive.AddAttachment>
-              <ComposerPrimitive.Input
-                id="chat-input"
-                className={styles.input}
-                placeholder="Pergunte sobre o Paulo..."
-              />
-              <ComposerPrimitive.Send className={styles.send}>Enviar</ComposerPrimitive.Send>
-            </div>
-          </ComposerPrimitive.Root>
-        </ThreadPrimitive.Root>
+                  </ComposerPrimitive.Attachments>
+                </div>
+                <label className={styles.label} htmlFor="chat-input">
+                  Mensagem
+                </label>
+                <div className={styles.composerRow}>
+                  <ComposerPrimitive.AddAttachment
+                    className={styles.attach}
+                    aria-label="Anexar arquivo de texto"
+                  >
+                    Anexar
+                  </ComposerPrimitive.AddAttachment>
+                  <ComposerPrimitive.Input
+                    id="chat-input"
+                    className={styles.input}
+                    placeholder="Pergunte sobre o Paulo..."
+                  />
+                  <ComposerPrimitive.Send className={styles.send}>Enviar</ComposerPrimitive.Send>
+                </div>
+              </ComposerPrimitive.Root>
+            </ThreadPrimitive.Root>
+          </div>
+        </div>
       </AssistantRuntimeProvider>
       <div ref={containerRef} className={styles.turnstile} />
       <Script
