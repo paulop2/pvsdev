@@ -15,6 +15,7 @@ import {
   useAuiState,
 } from '@assistant-ui/react';
 import { useAISDKError, useChatRuntime } from '@assistant-ui/ai-sdk';
+import { MarkdownText } from '@/components/MarkdownText';
 import { TurnstileChatTransport } from '@/components/chatTransport';
 import {
   normalizeThreadTitle,
@@ -22,6 +23,8 @@ import {
   threadTitleFallback,
 } from '@/components/chatThreads';
 import styles from '@/styles/chat.module.css';
+
+const ASSISTANT_PARTS = { Text: MarkdownText };
 
 declare global {
   interface Window {
@@ -296,9 +299,9 @@ export default function Chat() {
           <div className={styles.main}>
             <ThreadPrimitive.Root className={styles.thread}>
               <ThreadPrimitive.Viewport className={styles.messages}>
-                <AuiIf condition={state => state.thread.isEmpty}>
+                <AuiIf condition={(state) => state.thread.isEmpty}>
                   <div className={styles.suggestions}>
-                    {SUGGESTIONS.map(suggestion => (
+                    {SUGGESTIONS.map((suggestion) => (
                       <ThreadPrimitive.Suggestion
                         key={suggestion}
                         prompt={suggestion}
@@ -319,7 +322,11 @@ export default function Chat() {
                           : `${styles.message} ${styles.assistant}`
                       }
                     >
-                      <MessagePrimitive.Parts />
+                      {message.role === 'assistant' ? (
+                        <MessagePrimitive.Parts components={ASSISTANT_PARTS} />
+                      ) : (
+                        <MessagePrimitive.Parts />
+                      )}
                     </MessagePrimitive.Root>
                   )}
                 </ThreadPrimitive.Messages>
@@ -334,9 +341,7 @@ export default function Chat() {
                   className={styles.input}
                   placeholder="Pergunte sobre o Paulo..."
                 />
-                <ComposerPrimitive.Send className={styles.send}>
-                  Enviar
-                </ComposerPrimitive.Send>
+                <ComposerPrimitive.Send className={styles.send}>Enviar</ComposerPrimitive.Send>
               </ComposerPrimitive.Root>
             </ThreadPrimitive.Root>
           </div>
