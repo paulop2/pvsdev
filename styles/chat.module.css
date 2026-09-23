@@ -2,9 +2,171 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  max-width: 720px;
+  max-width: 1100px;
   margin: 0 auto;
   padding: 1rem;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 720px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.main {
+  min-width: 0;
+}
+
+.threadList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid #8884;
+  border-radius: 12px;
+  background: #8881;
+}
+
+.threadListInner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.newThread {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #8884;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.newThread[aria-current='true'] {
+  border-color: #2b6cb0;
+  color: #2b6cb0;
+}
+
+.threadItem {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 8px;
+}
+
+.threadTrigger {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.threadItem[data-active='true'] .threadTrigger {
+  background: #2b6cb0;
+  color: #fff;
+}
+
+.threadMore {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+}
+
+.threadMore:hover,
+.threadMore[data-state='open'] {
+  background: #8883;
+}
+
+.threadMenu {
+  z-index: 20;
+  min-width: 9rem;
+  padding: 0.25rem;
+  border: 1px solid #8884;
+  border-radius: 8px;
+  background: Canvas;
+  color: CanvasText;
+  box-shadow: 0 6px 20px #0003;
+}
+
+.threadMenuItem {
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  outline: none;
+}
+
+.threadMenuItem[data-highlighted] {
+  background: #8883;
+}
+
+.threadMenuItemDanger {
+  color: #c53030;
+}
+
+.threadMenuSeparator {
+  height: 1px;
+  margin: 0.25rem 0;
+  background: #8884;
+}
+
+.renameForm {
+  display: flex;
+  flex: 1;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.renameInput {
+  flex: 1;
+  min-width: 0;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #8884;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.renameSave,
+.renameCancel {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #8884;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.renameSave {
+  border-color: #2b6cb0;
+  background: #2b6cb0;
+  color: #fff;
 }
 
 .thread {

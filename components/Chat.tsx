@@ -1,16 +1,26 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Script from 'next/script';
 import {
   AssistantRuntimeProvider,
   AuiIf,
   ComposerPrimitive,
   MessagePrimitive,
+  ThreadListItemMorePrimitive,
+  ThreadListItemPrimitive,
+  ThreadListPrimitive,
   ThreadPrimitive,
+  useAui,
+  useAuiState,
 } from '@assistant-ui/react';
 import { useAISDKError, useChatRuntime } from '@assistant-ui/ai-sdk';
 import { TurnstileChatTransport } from '@/components/chatTransport';
+import {
+  normalizeThreadTitle,
+  THREAD_TITLE_FALLBACK,
+  threadTitleFallback,
+} from '@/components/chatThreads';
 import styles from '@/styles/chat.module.css';
 
 declare global {
@@ -77,10 +87,140 @@ function ChatError() {
   );
 }
 
+function ThreadRenameForm({
+  title,
+  onDone,
+}: {
+  title: string;
+  onDone: () => void;
+}) {
+  const aui = useAui();
+  const [draft, setDraft] = useState(title);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  const commit = () => {
+    const next = normalizeThreadTitle(draft, title);
+    if (next !== null) {
+      aui.threadListItem.rename(next);
+    }
+    onDone();
+  };
+
+  return (
+    <form
+      className={styles.renameForm}
+      onSubmit={event => {
+        event.preventDefault();
+        commit();
+      }}
+    >
+      <input
+        ref={inputRef}
+        className={styles.renameInput}
+        value={draft}
+        aria-label="Renomear conversa"
+        onChange={event => setDraft(event.target.value)}
+        onKeyDown={event => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            onDone();
+          }
+        }}
+      />
+      <button type="submit" className={styles.renameSave}>
+        Salvar
+      </button>
+      <button type="button" className={styles.renameCancel} onClick={onDone}>
+        Cancelar
+      </button>
+    </form>
+  );
+}
+
+function ThreadListItem() {
+  const [editing, setEditing] = useState(false);
+  const aui = useAui();
+  const title = useAuiState(state => state.threadListItem.title);
+  const isMain = useAuiState(
+    state => state.threads.mainThreadId === state.threadListItem.id,
+  );
+
+  if (editing) {
+    return (
+      <ThreadListItemPrimitive.Root className={styles.threadItem}>
+        <ThreadRenameForm
+          title={title ?? ''}
+          onDone={() => setEditing(false)}
+        />
+      </ThreadListItemPrimitive.Root>
+    );
+  }
+
+  return (
+    <ThreadListItemPrimitive.Root className={styles.threadItem}>
+      <ThreadListItemPrimitive.Trigger
+        className={styles.threadTrigger}
+        title={threadTitleFallback(title)}
+        aria-current={isMain ? 'true' : undefined}
+      >
+        <ThreadListItemPrimitive.Title fallback={THREAD_TITLE_FALLBACK} />
+      </ThreadListItemPrimitive.Trigger>
+      <ThreadListItemMorePrimitive.Root sharedFocusGroup>
+        <ThreadListItemMorePrimitive.Trigger
+          className={styles.threadMore}
+          aria-label="Opcoes da conversa"
+        >
+          &#8943;
+        </ThreadListItemMorePrimitive.Trigger>
+        <ThreadListItemMorePrimitive.Content className={styles.threadMenu}>
+          <ThreadListItemMorePrimitive.Item
+            className={styles.threadMenuItem}
+            onSelect={() => setEditing(true)}
+          >
+            Renomear
+          </ThreadListItemMorePrimitive.Item>
+          <ThreadListItemMorePrimitive.Separator
+            className={styles.threadMenuSeparator}
+          />
+          <ThreadListItemMorePrimitive.Item
+            className={`${styles.threadMenuItem} ${styles.threadMenuItemDanger}`}
+            onSelect={() => {
+              aui.threadListItem.delete();
+            }}
+          >
+            Excluir
+          </ThreadListItemMorePrimitive.Item>
+        </ThreadListItemMorePrimitive.Content>
+      </ThreadListItemMorePrimitive.Root>
+    </ThreadListItemPrimitive.Root>
+  );
+}
+
+function ThreadList() {
+  return (
+    <nav className={styles.threadList} aria-label="Conversas">
+      <ThreadListPrimitive.Root className={styles.threadListInner}>
+        <ThreadListPrimitive.New className={styles.newThread}>
+          Nova conversa
+        </ThreadListPrimitive.New>
+        <ThreadListPrimitive.Items>
+          {() => <ThreadListItem />}
+        </ThreadListPrimitive.Items>
+      </ThreadListPrimitive.Root>
+    </nav>
+  );
+}
+
 export default function Chat() {
   const tokenRef = useRef('');
   const widgetRef = useRef<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const runtimeRef = useRef<ReturnType<typeof useChatRuntime> | null>(null);
 
   const renderWidget = useCallback(() => {
     if (widgetRef.current) {
@@ -91,7 +231,7 @@ export default function Chat() {
     }
     widgetRef.current = window.turnstile.render(containerRef.current, {
       sitekey: SITE_KEY,
-      callback: (token) => {
+      callback: token => {
         tokenRef.current = token;
       },
       'expired-callback': () => {
@@ -107,17 +247,34 @@ export default function Chat() {
     }
   }, []);
 
+  const initializeThread = useCallback(async (threadId: string) => {
+    const item = runtimeRef.current?.threads.getItemById(threadId);
+    if (!item) {
+      return;
+    }
+    try {
+      await item.initialize();
+    } catch {
+      // Thread bookkeeping must not block the chat request.
+    }
+  }, []);
+
   const transport = useMemo(
     () =>
       new TurnstileChatTransport({
         api: `${API_URL}/chat`,
         getToken: () => tokenRef.current,
         onRequestSettled: resetWidget,
+        initializeThread,
       }),
-    [resetWidget],
+    [resetWidget, initializeThread],
   );
 
   const runtime = useChatRuntime({ transport });
+
+  useEffect(() => {
+    runtimeRef.current = runtime;
+  }, [runtime]);
 
   useEffect(() => {
     if (window.turnstile) {
@@ -134,49 +291,56 @@ export default function Chat() {
   return (
     <div className={styles.chat}>
       <AssistantRuntimeProvider runtime={runtime}>
-        <ThreadPrimitive.Root className={styles.thread}>
-          <ThreadPrimitive.Viewport className={styles.messages}>
-            <AuiIf condition={(state) => state.thread.isEmpty}>
-              <div className={styles.suggestions}>
-                {SUGGESTIONS.map((suggestion) => (
-                  <ThreadPrimitive.Suggestion
-                    key={suggestion}
-                    prompt={suggestion}
-                    send
-                    className={styles.suggestion}
-                  >
-                    {suggestion}
-                  </ThreadPrimitive.Suggestion>
-                ))}
-              </div>
-            </AuiIf>
-            <ThreadPrimitive.Messages>
-              {({ message }) => (
-                <MessagePrimitive.Root
-                  className={
-                    message.role === 'user'
-                      ? `${styles.message} ${styles.user}`
-                      : `${styles.message} ${styles.assistant}`
-                  }
-                >
-                  <MessagePrimitive.Parts />
-                </MessagePrimitive.Root>
-              )}
-            </ThreadPrimitive.Messages>
-          </ThreadPrimitive.Viewport>
-          <ChatError />
-          <ComposerPrimitive.Root className={styles.form}>
-            <label className={styles.label} htmlFor="chat-input">
-              Mensagem
-            </label>
-            <ComposerPrimitive.Input
-              id="chat-input"
-              className={styles.input}
-              placeholder="Pergunte sobre o Paulo..."
-            />
-            <ComposerPrimitive.Send className={styles.send}>Enviar</ComposerPrimitive.Send>
-          </ComposerPrimitive.Root>
-        </ThreadPrimitive.Root>
+        <div className={styles.layout}>
+          <ThreadList />
+          <div className={styles.main}>
+            <ThreadPrimitive.Root className={styles.thread}>
+              <ThreadPrimitive.Viewport className={styles.messages}>
+                <AuiIf condition={state => state.thread.isEmpty}>
+                  <div className={styles.suggestions}>
+                    {SUGGESTIONS.map(suggestion => (
+                      <ThreadPrimitive.Suggestion
+                        key={suggestion}
+                        prompt={suggestion}
+                        send
+                        className={styles.suggestion}
+                      >
+                        {suggestion}
+                      </ThreadPrimitive.Suggestion>
+                    ))}
+                  </div>
+                </AuiIf>
+                <ThreadPrimitive.Messages>
+                  {({ message }) => (
+                    <MessagePrimitive.Root
+                      className={
+                        message.role === 'user'
+                          ? `${styles.message} ${styles.user}`
+                          : `${styles.message} ${styles.assistant}`
+                      }
+                    >
+                      <MessagePrimitive.Parts />
+                    </MessagePrimitive.Root>
+                  )}
+                </ThreadPrimitive.Messages>
+              </ThreadPrimitive.Viewport>
+              <ChatError />
+              <ComposerPrimitive.Root className={styles.form}>
+                <label className={styles.label} htmlFor="chat-input">
+                  Mensagem
+                </label>
+                <ComposerPrimitive.Input
+                  id="chat-input"
+                  className={styles.input}
+                  placeholder="Pergunte sobre o Paulo..."
+                />
+                <ComposerPrimitive.Send className={styles.send}>
+                  Enviar
+                </ComposerPrimitive.Send>
+              </ComposerPrimitive.Root>
+            </ThreadPrimitive.Root>
+          </div>
+        </div>
       </AssistantRuntimeProvider>
       <div ref={containerRef} className={styles.turnstile} />
       <Script
