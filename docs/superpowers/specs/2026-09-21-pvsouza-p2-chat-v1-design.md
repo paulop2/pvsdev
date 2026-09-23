@@ -1,9 +1,10 @@
-# pvsouza.com — P2: Chat v1 (Worker de IA)
+# pvsouza.com — P2: Chat (v1 → v2, Worker de IA)
 
-**Data:** 2026-09-21
-**Status:** implementado e publicado
+**Data:** 2026-09-21 (atualizado em 2026-09-23)
+**Status:** implementado e publicado; UI e protocolo evoluíram para o **chat v2**
 **Repo:** `paulop2/pvsdev` (`C:\Users\PVS\projetos\pvsdev`)
 **Spec-pai:** `docs/superpowers/specs/2026-09-17-pvsouza-p1-deploy-design.md` (roadmap P0–P5)
+**ADR:** `docs/adr/0001-chat-ui-assistant-ui.md`
 
 ## Estado da execução
 
@@ -18,6 +19,35 @@
     `POST /chat` sem token válido -> `403 turnstile_failed`; preflight `204`;
     streaming real verificado no Worker (modelos do plano Free); `npm run build`,
     `npm run typecheck`, `npm test` (raiz e `ai/`) verdes.
+- **Chat v2 (epic #29):** concluído e publicado. A UI foi trocada por
+  `@assistant-ui/react` + `@assistant-ui/ai-sdk` e o Worker passou a emitir o
+  protocolo de texto do AI SDK. A seção **Estado final (chat v2)** descreve o
+  protocolo, os componentes e as limitações vigentes; as seções 4–8 e 10
+  registram o desenho v1 e o que mudou.
+
+## Estado final (chat v2)
+
+A versão publicada de `/chat` usa o assistant-ui sobre o Vercel AI SDK e o
+Worker no protocolo de texto. Os pontos abaixo substituem o desenho v1 das
+seções seguintes:
+
+- **Protocolo:** o Worker responde `200` + `text/plain; charset=utf-8` com o
+  texto concatenado (protocolo `streamProtocol: 'text'` do AI SDK). Não há mais
+  framing SSE (`event: token` / `done` / `error`) nem parser SSE no cliente.
+  Erros antes do stream continuam em JSON com os mesmos códigos.
+- **UI:** componentes `@assistant-ui/react` (`Thread`, `Composer`, `ThreadList`,
+  `Message`, `ActionBar`, `BranchPicker`, anexos), `MarkdownTextPrimitive` com
+  `remark-gfm` + `rehype-highlight`, transporte customizado
+  (`TextStreamChatTransport`) que anexa o token do Turnstile e o reseta a cada
+  envio.
+- **Sem código legado:** `components/chatStream.ts` (parser SSE) e seus testes
+  foram removidos; `components/Chat.tsx` foi reescrito para o assistant-ui.
+- **Limitações:** threads vivem só na memória do cliente (sem persistência;
+  recarregar perde o histórico); anexos apenas de texto (≤3000 caracteres, sem
+  vision/multimodal); sem RAG, artefatos, MCP, OIDC ou busca web; teto diário em
+  KV com consistência eventual; modelo fixo `llama-3.3-70b-instruct-fp8-fast`.
+- **Verificação:** `npm run typecheck`, `npm run build` e `npx vitest run`
+  (raiz e `ai/`) verdes.
 
 ## 1. Contexto
 
@@ -61,7 +91,8 @@ routes; todo acesso a IA vive num Worker dedicado em `ai/`.
 | Proteção | Turnstile + Rate Limiting binding (por IP) + teto diário em KV. |
 | Persona | Assistente do portfólio (system prompt no Worker). |
 | Histórico | Só no cliente; reenviado a cada turno, limitado. |
-| Render Markdown | `react-markdown` + `remark-gfm` (sem HTML cru). |
+| Render Markdown | v1: `react-markdown` + `remark-gfm`. v2: `@assistant-ui/react-markdown` (sobre `react-markdown`) + `remark-gfm`/`rehype-highlight` (sem HTML cru). |
+| Protocolo do stream | v1: SSE (`event: token`/`done`/`error`). v2: `text/plain` no protocolo de texto do AI SDK (`streamProtocol: 'text'`). |
 | Testes do Worker | `vitest` com dependências injetadas (adapters falsos); sem pool de runtime. |
 | Gateway | AI Gateway fica para o v2. |
 
@@ -75,13 +106,18 @@ Dois deploys independentes, um contrato:
 
 ```
 browser (pvsouza.com/chat)
-   |  POST https://ai.pvsouza.com/chat   (SSE)
+   |  POST https://ai.pvsouza.com/chat   (texto/AI SDK)
    v
 Worker: Turnstile -> rate limit por IP -> teto diario de tokens (KV)
    |
    v  Workers AI binding (@cf/meta/llama-3.3-70b-instruct-fp8-fast)
-stream SSE token a token --> browser renderiza Markdown progressivo
+stream de texto token a token --> browser renderiza Markdown progressivo
 ```
+
+> **v1 → v2:** no v1 o transporte era SSE (`text/event-stream`) com framing
+> `token`/`done`/`error` e um parser SSE no cliente. No v2 o Worker emite
+> `text/plain` no protocolo de texto do AI SDK e o cliente usa
+> `TextStreamChatTransport`; o parser SSE foi removido.
 
 - **Site:** Next 15 estático no Pages em `pvsouza.com`. Ganha a rota `/chat` e o
   card da home passa a linkar para ela. Nenhuma API route é adicionada.
@@ -125,21 +161,20 @@ Validação (violação -> `400 invalid_request`):
 
 O Worker injeta o system prompt; o cliente nunca o envia.
 
-Resposta de sucesso: `200` + `text/event-stream`:
+Resposta de sucesso: `200` + `text/plain; charset=utf-8` (protocolo de texto do
+AI SDK):
 
 ```
-event: token
-data: {"delta":"Ola"}
-
-event: token
-data: {"delta":", mundo"}
-
-event: done
-data: {"model":"@cf/meta/llama-3.3-70b-instruct-fp8-fast","usage":{"prompt":123,"completion":45}}
+Ola, mundo
 ```
 
-`usage` está sempre presente no `done`; quando o upstream não devolve, o Worker
-estima `~chars/4`. A resposta é limitada a `max_tokens: 1024`.
+O corpo é o texto concatenado dos deltas, sem framing. O `usage` não vai no
+corpo: o Worker o usa apenas para o teto diário (quando o upstream não devolve,
+estima `~chars/4`). A resposta é limitada a `max_tokens: 1024`.
+
+> **v1:** a resposta era `text/event-stream` com eventos `token`/`done`/`error`
+> e `usage` no `done`. Esse framing e o parser SSE do cliente foram removidos no
+> v2 (ver a seção **Estado final (chat v2)**).
 
 Erros **antes** do stream (JSON, com cabeçalhos CORS):
 
@@ -154,8 +189,9 @@ Erros **antes** do stream (JSON, com cabeçalhos CORS):
 | 405 | `method_not_allowed` | método diferente de POST/OPTIONS |
 | 502 | `upstream_error` | falha do Workers AI antes do primeiro token |
 
-Erros **durante** o stream: `event: error` com `{code,message}` e fim do stream.
-O cliente mantém o texto já recebido e mostra o aviso.
+Erros **durante** o stream: o Worker encerra o stream com erro
+(`controller.error`); o transporte do AI SDK propaga a falha e o assistant-ui
+mostra o aviso. Não há mais `event: error` no corpo.
 
 ### `GET /health`
 
@@ -206,30 +242,47 @@ ai/
     turnstile.ts
     daily-cap.ts
     system-prompt.ts  perfil do Paulo (constante no v1; vira RAG no P3)
-    chat.ts           Workers AI + SSE
+    chat.ts           Workers AI + texto (protocolo do AI SDK)
   test/
     *.test.ts
 ```
 
 - `index.ts` monta a ordem de checagem e delega; não contém regra de negócio.
-- `chat.ts` chama o binding `AI` com `stream: true` e traduz os chunks para o
-  framing SSE (`token` / `done` / `error`).
+- `chat.ts` chama o binding `AI` com `stream: true`, faz o parse do SSE do
+  upstream (`parseUpstreamFrame`) e reemite **apenas o texto** concatenado
+  (`toTextStream`), no protocolo de texto do AI SDK. O `usage` alimenta o teto
+  diário e não vai no corpo.
 - `system-prompt.ts` é a única fonte da persona no v1 e será substituída pelo
   contexto do RAG no P3.
 - Sem comentários no código-fonte.
 
 ## 8. UI de chat
 
+Estado final (chat v2), com `@assistant-ui/react` + `@assistant-ui/ai-sdk`:
+
 - `app/chat/page.tsx` (server): metadata e shell.
-- `components/Chat.tsx` (client): lista de mensagens, input, envio, leitura do
-  stream SSE (`fetch` + `response.body.getReader()`), render Markdown
-  progressivo, estados `idle | streaming | error | capped`, botão "limpar" e
-  prompts sugeridos iniciais.
+- `components/Chat.tsx` (client): `AssistantRuntimeProvider` + `useChatRuntime`
+  com `ThreadList`, `Thread`/`Viewport`/`Messages`, `Composer`, `ActionBar`
+  (editar/regenerar), `BranchPicker` e anexos. Renderiza markdown progressivo e
+  trata os erros do Worker (`turnstile_failed`, `rate_limited`,
+  `daily_cap_exceeded`, `upstream_error`).
+- `components/MarkdownText.tsx`: `MarkdownTextPrimitive` com
+  `remark-gfm`/`rehype-highlight` (sem HTML cru) e header de código com "copiar".
+- `components/chatTransport.ts`: `TurnstileChatTransport` (estende
+  `TextStreamChatTransport`), que anexa o token do Turnstile e o reseta após
+  cada envio.
+- `components/chatAttachments.ts`: anexos somente de texto (≤3000 caracteres).
 - `styles/chat.module.css` para o layout.
 - Turnstile carregado via `next/script`; o token é resetado após cada envio.
 - Card "Chat" da home vira `<Link href="/chat">`.
-- Acessibilidade: input rotulado, `aria-live` na região de resposta, foco
-  preservado, contraste no tema existente.
+- Acessibilidade: input rotulado, `aria-live` na região de mensagens, foco
+  preservado, atalhos de teclado e contraste no tema existente.
+
+> **v1 (histórico):** o componente lia o stream SSE com
+> `fetch` + `response.body.getReader()` e um parser próprio
+> (`components/chatStream.ts`), com estados `idle | streaming | error | capped`
+> e botão "limpar". Esse componente, o parser e seus testes foram removidos; o
+> CSS órfão do botão "limpar" também.
 
 ## 9. Configuração e segredos
 
@@ -249,12 +302,14 @@ ai/
 - Turnstile fail-closed e token inválido;
 - rate limit e teto diário (incluindo `Retry-After` e `daily_cap_exceeded`);
 - ordem de checagem (não chama a IA quando uma checagem anterior falha);
-- framing SSE (`token`, `done`, `error`) e erro de upstream antes do 1º token;
+- framing do upstream (`data:` / `[DONE]`), truncamento e erro de upstream antes
+  do 1º token;
 - `GET /health`.
 
-**UI/site:** `npm run typecheck` e `npm run build` (obrigatórios pelo
-`AGENTS.md`), teste unitário do parser SSE do cliente (`components/chatStream.ts`)
-com `vitest` na raiz, e smoke manual no `/chat`.
+**UI/site:** `npm run typecheck`, `npm run build` e `npx vitest run` na raiz
+(transporte `components/chatTransport.ts`, anexos, teclado, threads, mensagens,
+contraste e pipeline de markdown), mais smoke manual no `/chat`. Não existe mais
+teste do parser SSE do cliente (removido com `components/chatStream.ts`).
 
 **Verificação E2E (manual):** após o deploy, enviar uma mensagem em
 `https://pvsouza.com/chat`, confirmar streaming, Markdown, bloqueio sem
@@ -282,6 +337,8 @@ Deploy do Worker: `npx wrangler deploy` em `ai/`.
 | Turnstile indisponível | Fail-closed por design; erro visível ao usuário. |
 | Segredo vazado | Segredos só via `wrangler secret`; `.dev.vars` ignorado. |
 | Contexto do modelo excedido | Limite de 12 mensagens / 16000 chars antes da chamada. |
+| Histórico perdido ao recarregar | Threads só na memória do cliente (v2); persistência é follow-up. |
+| Anexo binário/vision | Anexos restritos a texto (≤3000 chars) com recusa explícita. |
 
 ## 13. Alternativas consideradas
 
@@ -304,15 +361,19 @@ Deploy do Worker: `npx wrangler deploy` em `ai/`.
 - v2: cache de respostas.
 - P3: RAG playground (substitui o system prompt estático pelo contexto recuperado).
 - P4: artefatos HTML/SVG.
+- Chat v2: persistência de threads no cliente (ex.: `localStorage`) — não
+  implementada; hoje o histórico se perde ao recarregar.
+- Chat v2: demais gaps de plataforma catalogados no epic #30.
 
 ## 15. Critérios de aceite
 
 - `npm run build` e `npm run typecheck` passam.
-- `npx vitest run` em `ai/` passa com todos os cenários da seção 10.
-- `https://pvsouza.com/chat` renderiza o chat e faz streaming token a token com
-  Markdown progressivo.
+- `npx vitest run` na raiz e em `ai/` passa com todos os cenários da seção 10.
+- `https://pvsouza.com/chat` renderiza a UI do assistant-ui e faz streaming token
+  a token com Markdown progressivo.
 - Requisição sem Turnstile válido recebe `403 turnstile_failed`.
 - Exceder o rate limit responde `429 rate_limited`; exceder o teto diário
   responde `429 daily_cap_exceeded`.
 - `GET https://ai.pvsouza.com/health` responde `200 {"status":"ok"}`.
 - Nenhum segredo no repositório; nenhuma API route adicionada ao site.
+- Sem código legado do chat v1 (componente/parser SSE) referenciado no repo.
