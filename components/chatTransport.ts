@@ -36,6 +36,12 @@ export interface TurnstileTransportOptions<UI_MESSAGE extends UIMessage>
   extends HttpChatTransportInitOptions<UI_MESSAGE> {
   getToken: () => string;
   onRequestSettled: () => void;
+  /**
+   * Registra a thread dona da requisicao antes de enviar o historico. O AI SDK
+   * informa o id da thread em `chatId`; o assistant-ui promove a thread em
+   * memoria de "new" para a lista assim que ela e inicializada.
+   */
+  initializeThread?: (threadId: string) => Promise<void> | void;
 }
 
 export class TurnstileChatTransport<
@@ -43,15 +49,18 @@ export class TurnstileChatTransport<
 > extends TextStreamChatTransport<UI_MESSAGE> {
   private readonly onRequestSettled: () => void;
 
-  constructor({ getToken, onRequestSettled, ...options }: TurnstileTransportOptions<UI_MESSAGE>) {
+  constructor({ getToken, onRequestSettled, initializeThread, ...options }: TurnstileTransportOptions<UI_MESSAGE>) {
     super({
       ...options,
-      prepareSendMessagesRequest: ({ messages }) => ({
-        body: {
-          messages: toWorkerMessages(messages),
-          turnstileToken: getToken(),
-        },
-      }),
+      prepareSendMessagesRequest: async ({ messages, id }) => {
+        await initializeThread?.(id);
+        return {
+          body: {
+            messages: toWorkerMessages(messages),
+            turnstileToken: getToken(),
+          },
+        };
+      },
     });
     this.onRequestSettled = onRequestSettled;
   }
