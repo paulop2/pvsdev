@@ -61,6 +61,92 @@
   background: #8881;
 }
 
+.messageFooter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.action {
+  border: 1px solid #8884;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  padding: 0.2rem 0.55rem;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+.action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.branchPicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+}
+
+.branchButton {
+  border: 1px solid #8884;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  padding: 0.05rem 0.45rem;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1.4;
+}
+
+.branchButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.branchPosition {
+  min-width: 3.4rem;
+  text-align: center;
+}
+
+.editMessage {
+  align-self: stretch;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+}
+
+.editForm {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.editActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.cancel {
+  padding: 0.45rem 0.9rem;
+  border: 1px solid #8884;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
 .form {
   display: grid;
   grid-template-columns: 1fr auto;

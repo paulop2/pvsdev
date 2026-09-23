@@ -3,14 +3,17 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import Script from 'next/script';
 import {
+  ActionBarPrimitive,
   AssistantRuntimeProvider,
   AuiIf,
+  BranchPickerPrimitive,
   ComposerPrimitive,
   MessagePrimitive,
   ThreadPrimitive,
 } from '@assistant-ui/react';
 import { useAISDKError, useChatRuntime } from '@assistant-ui/ai-sdk';
 import { TurnstileChatTransport } from '@/components/chatTransport';
+import { resolveMessageKind } from '@/components/chatMessages';
 import styles from '@/styles/chat.module.css';
 
 declare global {
@@ -74,6 +77,80 @@ function ChatError() {
     <p className={styles.error} role="alert">
       {errorMessage(error)}
     </p>
+  );
+}
+
+function BranchPicker() {
+  return (
+    <BranchPickerPrimitive.Root
+      hideWhenSingleBranch
+      className={styles.branchPicker}
+    >
+      <BranchPickerPrimitive.Previous
+        className={styles.branchButton}
+        aria-label="Ramo anterior"
+      >
+        &lsaquo;
+      </BranchPickerPrimitive.Previous>
+      <span className={styles.branchPosition}>
+        <BranchPickerPrimitive.Number /> de <BranchPickerPrimitive.Count />
+      </span>
+      <BranchPickerPrimitive.Next
+        className={styles.branchButton}
+        aria-label="Proximo ramo"
+      >
+        &rsaquo;
+      </BranchPickerPrimitive.Next>
+    </BranchPickerPrimitive.Root>
+  );
+}
+
+function UserMessage() {
+  return (
+    <MessagePrimitive.Root className={`${styles.message} ${styles.user}`}>
+      <MessagePrimitive.Parts />
+      <div className={styles.messageFooter}>
+        <ActionBarPrimitive.Root className={styles.actions} hideWhenRunning>
+          <ActionBarPrimitive.Edit className={styles.action}>Editar</ActionBarPrimitive.Edit>
+        </ActionBarPrimitive.Root>
+        <BranchPicker />
+      </div>
+    </MessagePrimitive.Root>
+  );
+}
+
+function AssistantMessage() {
+  return (
+    <MessagePrimitive.Root className={`${styles.message} ${styles.assistant}`}>
+      <MessagePrimitive.Parts />
+      <div className={styles.messageFooter}>
+        <ActionBarPrimitive.Root className={styles.actions} hideWhenRunning>
+          <ActionBarPrimitive.Reload className={styles.action}>Regenerar</ActionBarPrimitive.Reload>
+        </ActionBarPrimitive.Root>
+        <BranchPicker />
+      </div>
+    </MessagePrimitive.Root>
+  );
+}
+
+function EditComposer() {
+  return (
+    <MessagePrimitive.Root className={`${styles.message} ${styles.editMessage}`}>
+      <ComposerPrimitive.Root className={styles.editForm}>
+        <label className={styles.label} htmlFor="chat-edit-input">
+          Editar mensagem
+        </label>
+        <ComposerPrimitive.Input
+          id="chat-edit-input"
+          className={styles.input}
+          aria-label="Editar mensagem"
+        />
+        <div className={styles.editActions}>
+          <ComposerPrimitive.Cancel className={styles.cancel}>Cancelar</ComposerPrimitive.Cancel>
+          <ComposerPrimitive.Send className={styles.send}>Salvar</ComposerPrimitive.Send>
+        </div>
+      </ComposerPrimitive.Root>
+    </MessagePrimitive.Root>
   );
 }
 
@@ -151,17 +228,16 @@ export default function Chat() {
               </div>
             </AuiIf>
             <ThreadPrimitive.Messages>
-              {({ message }) => (
-                <MessagePrimitive.Root
-                  className={
-                    message.role === 'user'
-                      ? `${styles.message} ${styles.user}`
-                      : `${styles.message} ${styles.assistant}`
-                  }
-                >
-                  <MessagePrimitive.Parts />
-                </MessagePrimitive.Root>
-              )}
+              {({ message }) => {
+                switch (resolveMessageKind(message)) {
+                  case 'edit':
+                    return <EditComposer />;
+                  case 'user':
+                    return <UserMessage />;
+                  default:
+                    return <AssistantMessage />;
+                }
+              }}
             </ThreadPrimitive.Messages>
           </ThreadPrimitive.Viewport>
           <ChatError />
