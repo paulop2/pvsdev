@@ -117,4 +117,32 @@ describe('TurnstileChatTransport', () => {
     expect(deltas).toBe('ola mundo');
     expect(settled).toBe(1);
   });
+
+  it('inicializa a thread antes de enviar o historico', async () => {
+    const initialized: string[] = [];
+    const fetchMock = (async () =>
+      new Response('ok', {
+        status: 200,
+        headers: { 'content-type': 'text/plain' },
+      })) as typeof fetch;
+    const transport = new TurnstileChatTransport({
+      api: 'https://ai.example/chat',
+      getToken: () => 'tok-123',
+      onRequestSettled: () => {},
+      initializeThread: (threadId) => {
+        initialized.push(threadId);
+      },
+      fetch: fetchMock,
+    });
+
+    await transport.sendMessages({
+      trigger: 'submit-message',
+      chatId: 'thread-1',
+      messageId: undefined,
+      messages: [message('user', [{ type: 'text', text: 'oi' }])],
+      abortSignal: undefined,
+    });
+
+    expect(initialized).toEqual(['thread-1']);
+  });
 });
