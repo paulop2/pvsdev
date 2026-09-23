@@ -57,20 +57,25 @@ export function estimateTokens(chars: number): number {
 export interface ChatStreamOptions {
   upstream: ReadableStream<Uint8Array>;
   promptChars: number;
-  model: string;
   onUsage: (usage: Usage) => void | Promise<void>;
   onError?: (error: unknown) => void;
 }
 
-export function toSseStream(options: ChatStreamOptions): ReadableStream<Uint8Array> {
+export function toTextStream(options: ChatStreamOptions): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
-  const frame = (event: string, data: unknown): Uint8Array =>
-    encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 
   return new ReadableStream<Uint8Array>({
     async start(controller) {
       const reader = options.upstream.getReader();
+      const fail = (error: unknown): void => {
+        options.onError?.(error);
+        try {
+          controller.error(error);
+        } catch {
+          // stream ja encerrado
+        }
+      };
       let buffer = '';
       let completion = '';
       let sawDone = false;
@@ -87,7 +92,7 @@ export function toSseStream(options: ChatStreamOptions): ReadableStream<Uint8Arr
             const parsed = parseUpstreamFrame(line);
             if (parsed.kind === 'delta') {
               completion += parsed.text;
-              controller.enqueue(frame('token', { delta: parsed.text }));
+              controller.enqueue(encoder.encode(parsed.text));
             } else if (parsed.kind === 'done') {
               sawDone = true;
             }
@@ -97,31 +102,27 @@ export function toSseStream(options: ChatStreamOptions): ReadableStream<Uint8Arr
           const parsed = parseUpstreamFrame(buffer);
           if (parsed.kind === 'delta') {
             completion += parsed.text;
-            controller.enqueue(frame('token', { delta: parsed.text }));
+            controller.enqueue(encoder.encode(parsed.text));
           } else if (parsed.kind === 'done') {
             sawDone = true;
           }
         }
         if (!sawDone) {
-          controller.enqueue(frame('error', { code: 'stream_error', message: 'stream truncated' }));
-          options.onError?.(new Error('stream truncated'));
+          fail(new Error('stream truncated'));
           return;
         }
         const usage: Usage = {
           prompt: estimateTokens(options.promptChars),
           completion: estimateTokens(completion.length),
         };
-        controller.enqueue(frame('done', { model: options.model, usage }));
         try {
           await options.onUsage(usage);
         } catch (error) {
           options.onError?.(error);
         }
-      } catch (error) {
-        controller.enqueue(frame('error', { code: 'stream_error', message: 'stream failed' }));
-        options.onError?.(error);
-      } finally {
         controller.close();
+      } catch (error) {
+        fail(error);
       }
     },
   });

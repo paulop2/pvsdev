@@ -163,15 +163,14 @@ describe('createHandler', () => {
     expect(seen[0][1]).toEqual({ role: 'user', content: 'oi' });
   });
 
-  it('transmite SSE e registra o uso de tokens', async () => {
+  it('transmite texto puro e registra o uso de tokens', async () => {
     const addTokens = vi.fn<(tokens: number) => Promise<void>>(async () => undefined);
     const handler = createHandler(makeDeps({ addTokens }));
     const response = await handler(chatRequest(validBody));
     expect(response.status).toBe(200);
-    expect(response.headers.get('content-type')).toContain('text/event-stream');
+    expect(response.headers.get('content-type')).toContain('text/plain');
     const text = await response.text();
-    expect(text).toContain('event: token');
-    expect(text).toContain('event: done');
+    expect(text).toBe('ola');
     expect(addTokens).toHaveBeenCalledTimes(1);
   });
 

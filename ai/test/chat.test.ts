@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { estimateTokens, parseUpstreamFrame, toSseStream, type Usage } from '../src/chat';
+import { estimateTokens, parseUpstreamFrame, toTextStream, type Usage } from '../src/chat';
 
 function upstreamFrom(text: string): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
@@ -83,83 +83,65 @@ describe('estimateTokens', () => {
   });
 });
 
-describe('toSseStream', () => {
-  it('emite tokens, done com usage e chama onUsage', async () => {
+describe('toTextStream', () => {
+  it('emite os deltas como texto puro e chama onUsage', async () => {
     const onUsage = vi.fn<(usage: Usage) => void>();
-    const stream = toSseStream({
-      upstream: upstreamFrom('data: {"response":"ola"}\ndata: {"response":" mundo"}\ndata: [DONE]\n'),
+    const stream = toTextStream({
+      upstream: upstreamFrom(
+        'data: {"response":"ola"}\ndata: {"response":" mundo"}\ndata: [DONE]\n',
+      ),
       promptChars: 8,
-      model: 'test-model',
       onUsage,
     });
     const output = await readAll(stream);
-    expect(output).toContain('event: token\ndata: {"delta":"ola"}');
-    expect(output).toContain('event: token\ndata: {"delta":" mundo"}');
-    expect(output).toContain('event: done');
-    expect(output).toContain('"model":"test-model"');
-    expect(output).toContain('"prompt":2');
-    expect(output).toContain('"completion":3');
+    expect(output).toBe('ola mundo');
+    expect(output).not.toContain('event:');
+    expect(output).not.toContain('data:');
     expect(onUsage).toHaveBeenCalledWith({ prompt: 2, completion: 3 });
   });
 
-  it('emite erro quando o upstream termina sem [DONE]', async () => {
-    const stream = toSseStream({
+  it('propaga erro quando o upstream termina sem [DONE]', async () => {
+    const onError = vi.fn();
+    const stream = toTextStream({
       upstream: upstreamFrom('data: {"response":"corte"}'),
       promptChars: 4,
-      model: 'test-model',
       onUsage: () => undefined,
+      onError,
     });
-    const output = await readAll(stream);
-    expect(output).toContain('event: error');
-    expect(output).not.toContain('event: done');
+    await expect(readAll(stream)).rejects.toThrow('stream truncated');
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect((onError.mock.calls[0]?.[0] as Error).message).toBe('stream truncated');
   });
 
-  it('emite token e done quando um delta e dividido entre chunks', async () => {
+  it('emite o delta quando ele e dividido entre chunks', async () => {
     const onUsage = vi.fn<(usage: Usage) => void>();
-    const stream = toSseStream({
+    const stream = toTextStream({
       upstream: upstreamChunks('data: {"res', 'ponse":"ola"}\ndata: [DONE]\n'),
       promptChars: 4,
-      model: 'test-model',
       onUsage,
     });
     const output = await readAll(stream);
-    expect(output).toContain('event: token\ndata: {"delta":"ola"}');
-    expect(output).toContain('event: done');
+    expect(output).toBe('ola');
+    expect(onUsage).toHaveBeenCalledWith({ prompt: 1, completion: 1 });
   });
 
   it('nao emite error depois de done quando onUsage rejeita', async () => {
     const onUsage = vi.fn(() => Promise.reject(new Error('boom')));
     const onError = vi.fn();
-    const stream = toSseStream({
+    const stream = toTextStream({
       upstream: upstreamFrom('data: {"response":"ola"}\ndata: [DONE]\n'),
       promptChars: 4,
-      model: 'test-model',
       onUsage,
       onError,
     });
     const output = await readAll(stream);
-    expect(output).toContain('event: done');
-    expect(output).not.toContain('event: error');
+    expect(output).toBe('ola');
     expect(onError).toHaveBeenCalledTimes(1);
     expect((onError.mock.calls[0]?.[0] as Error).message).toBe('boom');
   });
 
-  it('chama onError quando o upstream trunca', async () => {
-    const onError = vi.fn();
-    const stream = toSseStream({
-      upstream: upstreamFrom('data: {"response":"corte"}'),
-      promptChars: 4,
-      model: 'test-model',
-      onUsage: () => undefined,
-      onError,
-    });
-    await readAll(stream);
-    expect(onError).toHaveBeenCalledTimes(1);
-    expect((onError.mock.calls[0]?.[0] as Error).message).toBe('stream truncated');
-  });
-
-  it('traduz frames OpenAI-compat para o SSE do contrato', async () => {
-    const stream = toSseStream({
+  it('traduz frames OpenAI-compat para texto puro', async () => {
+    const stream = toTextStream({
       upstream: upstreamFrom(
         'data: {"choices":[{"delta":{"role":"assistant"}}]}\n' +
           'data: {"choices":[{"delta":{"content":"ola"}}]}\n' +
@@ -168,30 +150,25 @@ describe('toSseStream', () => {
           'data: [DONE]\n',
       ),
       promptChars: 4,
-      model: 'test-model',
       onUsage: () => undefined,
     });
     const output = await readAll(stream);
-    expect(output).toContain('event: token\ndata: {"delta":"ola"}');
-    expect(output).toContain('event: token\ndata: {"delta":" mundo"}');
-    expect(output).toContain('event: done');
-    expect(output).not.toContain('event: error');
+    expect(output).toBe('ola mundo');
   });
 
-  it('conclui com done quando o upstream OpenAI termina sem [DONE]', async () => {
-    const stream = toSseStream({
+  it('conclui quando o upstream OpenAI termina sem [DONE]', async () => {
+    const onError = vi.fn();
+    const stream = toTextStream({
       upstream: upstreamFrom(
         'data: {"choices":[{"delta":{"content":"ola"}}]}\n' +
           'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n',
       ),
       promptChars: 4,
-      model: 'test-model',
       onUsage: () => undefined,
+      onError,
     });
     const output = await readAll(stream);
-    expect(output).toContain('event: token\ndata: {"delta":"ola"}');
-    expect(output).toContain('event: done');
-    expect(output).not.toContain('event: error');
+    expect(output).toBe('ola');
+    expect(onError).not.toHaveBeenCalled();
   });
 });
-
