@@ -10,8 +10,11 @@ import {
   ThreadPrimitive,
 } from '@assistant-ui/react';
 import { useAISDKError, useChatRuntime } from '@assistant-ui/ai-sdk';
+import { MarkdownText } from '@/components/MarkdownText';
 import { TurnstileChatTransport } from '@/components/chatTransport';
 import styles from '@/styles/chat.module.css';
+
+const ASSISTANT_PARTS = { Text: MarkdownText };
 
 declare global {
   interface Window {
@@ -159,7 +162,11 @@ export default function Chat() {
                       : `${styles.message} ${styles.assistant}`
                   }
                 >
-                  <MessagePrimitive.Parts />
+                  {message.role === 'assistant' ? (
+                    <MessagePrimitive.Parts components={ASSISTANT_PARTS} />
+                  ) : (
+                    <MessagePrimitive.Parts />
+                  )}
                 </MessagePrimitive.Root>
               )}
             </ThreadPrimitive.Messages>
