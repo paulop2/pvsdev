@@ -19,9 +19,26 @@ Dois fatos motivam a decisao:
 Adotar **`@assistant-ui/react` + `@assistant-ui/ai-sdk`** (sobre o **Vercel AI SDK**) como a UI de chat, como **componente client-only** dentro do site estatico, mantendo a topologia atual:
 
 - A UI roda no browser (compativel com `output: 'export'`) e chama o Worker `ai.pvsouza.com`.
-- O Worker passa a expor o stream no **protocolo do AI SDK** (UI message stream); como passo inicial, aceita-se `streamProtocol: 'text'` para streaming de texto puro.
+- O Worker expoe o stream no **protocolo de texto do AI SDK** (`streamProtocol: 'text'`, `text/plain`); o UI message stream completo fica como evolucao possivel.
 - CORS/Turnstile/rate-limit continuam no Worker (subdominio separado permanece).
 - Recursos de plataforma que a chat-ui traz prontos (MCP, multimodal, router, OIDC, MongoDB, compartilhamento, web search) ficam **explicitamente fora** desta decisao e sao registrados como gaps.
+
+## Estado da implementacao
+
+Implementado e publicado (epic #29). O estado final esta detalhado em
+`docs/superpowers/specs/2026-09-21-pvsouza-p2-chat-v1-design.md`:
+
+- **UI:** `@assistant-ui/react` + `@assistant-ui/ai-sdk` como componente
+  client-only; markdown via `@assistant-ui/react-markdown` com `remark-gfm` +
+  `rehype-highlight`.
+- **Protocolo:** `POST /chat` responde `200` + `text/plain` (texto concatenado),
+  consumido por `TextStreamChatTransport`. Sem framing SSE e sem parser SSE no
+  cliente; CORS, Turnstile, rate limit e teto diario seguem no Worker.
+- **Codigo legado removido:** componente v1 e `components/chatStream.ts` (parser
+  SSE) e seus testes; CSS orfao correspondente.
+- **Limitacoes:** threads so na memoria do cliente; anexos apenas de texto
+  (sem vision/multimodal); sem RAG/artefatos/MCP/OIDC; teto diario em KV com
+  consistencia eventual.
 
 ## Alternativas consideradas
 
@@ -43,7 +60,7 @@ Adotar **`@assistant-ui/react` + `@assistant-ui/ai-sdk`** (sobre o **Vercel AI S
 
 **Negativas / custos**
 
-- Novas dependencias React (`@assistant-ui/react`, `@assistant-ui/ai-sdk`, `ai`, `@ai-sdk/react`).
+- Novas dependencias React (`@assistant-ui/react`, `@assistant-ui/ai-sdk`, `@assistant-ui/react-markdown`, `ai`, `@ai-sdk/react`).
 - Trabalho no Worker para emitir o protocolo de stream do AI SDK.
 - Recursos de plataforma da chat-ui nao vem de graca — ver o epic de gaps.
 

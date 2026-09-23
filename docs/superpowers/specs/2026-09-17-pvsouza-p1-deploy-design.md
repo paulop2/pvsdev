@@ -17,7 +17,9 @@
   - Desvio documentado: o demo `birds` foi adiado (follow-up), conforme mitigação da §5.6.
 - **P2 — Chat v1:** concluído e publicado. Spec em
   `docs/superpowers/specs/2026-09-21-pvsouza-p2-chat-v1-design.md`; Worker em
-  `https://ai.pvsouza.com` e chat em `https://pvsouza.com/chat`.
+  `https://ai.pvsouza.com` e chat em `https://pvsouza.com/chat`. A UI/protocolo
+  evoluíram para o **chat v2** (epic #29: `@assistant-ui/react` + AI SDK,
+  protocolo de texto; ADR 0001).
 - **P3–P5:** não iniciados.
 
 ## 1. Contexto
@@ -79,7 +81,7 @@ restringem decisões de DNS):
 |---|---|---|---|
 | P0 | Processo | Camada leve de rastreamento no repo (templates de epic/feature/task/bug, PR template, `AGENTS.md` + `WORKFLOW.md` curto). | — |
 | P1 | Deploy/plataforma | `pvsdev` modernizado (Next 15 App Router, `output: export`) no Pages + `pvsouza.com` na raiz, www→raiz, HTTPS. | P0 |
-| P2 | Chat v1 | Worker de IA com streaming SSE + render Markdown + Turnstile/rate-limit/teto + UI de chat. | P1 |
+| P2 | Chat | Worker de IA com streaming (v2: protocolo de texto do AI SDK) + render Markdown + Turnstile/rate-limit/teto + UI (v2: assistant-ui). | P1 |
 | P3 | RAG playground | Playground do pipeline sobre corpus curado, com scores e citações visíveis. | P2 |
 | P4 | Artefatos v2 | Painel lateral + iframe sandboxed para HTML/SVG. | P2 |
 | P5+ | Mais IA | Estrutura extensível (`/demos/*` no site + rotas no Worker) para novas features. | P2 |
