@@ -1,16 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import Script from 'next/script';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { parseSseBuffer } from '@/components/chatStream';
+import {
+  AssistantRuntimeProvider,
+  AuiIf,
+  ComposerPrimitive,
+  MessagePrimitive,
+  ThreadPrimitive,
+} from '@assistant-ui/react';
+import { useAISDKError, useChatRuntime } from '@assistant-ui/ai-sdk';
+import { TurnstileChatTransport } from '@/components/chatTransport';
 import styles from '@/styles/chat.module.css';
-
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-}
 
 declare global {
   interface Window {
@@ -37,16 +38,49 @@ const SUGGESTIONS = [
   'Qual stack ele domina?',
 ];
 
+function errorMessage(error: Error): string {
+  const raw = error.message ?? '';
+  let code = raw;
+  try {
+    const parsed = JSON.parse(raw) as { code?: unknown };
+    if (typeof parsed.code === 'string') {
+      code = parsed.code;
+    }
+  } catch {
+    code = raw;
+  }
+  switch (code) {
+    case 'turnstile_failed':
+      return 'A verificacao de seguranca falhou. Recarregue a pagina e tente novamente.';
+    case 'rate_limited':
+      return 'Muitas mensagens em pouco tempo. Aguarde um minuto e tente novamente.';
+    case 'daily_cap_exceeded':
+      return 'Limite diario de mensagens atingido. Tente novamente mais tarde.';
+    case 'upstream_error':
+      return 'O assistente esta indisponivel no momento. Tente novamente.';
+    case 'origin_not_allowed':
+      return 'Origem nao autorizada a usar o assistente.';
+    default:
+      return raw.length > 0 ? raw : 'Falha ao enviar a mensagem.';
+  }
+}
+
+function ChatError() {
+  const error = useAISDKError();
+  if (!error) {
+    return null;
+  }
+  return (
+    <p className={styles.error} role="alert">
+      {errorMessage(error)}
+    </p>
+  );
+}
+
 export default function Chat() {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
-  const [status, setStatus] = useState<'idle' | 'streaming' | 'error' | 'capped'>('idle');
-  const [error, setError] = useState<string | null>(null);
-  const [announcement, setAnnouncement] = useState('');
-  const tokenRef = useRef<string>('');
+  const tokenRef = useRef('');
   const widgetRef = useRef<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
 
   const renderWidget = useCallback(() => {
     if (widgetRef.current) {
@@ -66,6 +100,25 @@ export default function Chat() {
     });
   }, []);
 
+  const resetWidget = useCallback(() => {
+    tokenRef.current = '';
+    if (widgetRef.current && window.turnstile) {
+      window.turnstile.reset(widgetRef.current);
+    }
+  }, []);
+
+  const transport = useMemo(
+    () =>
+      new TurnstileChatTransport({
+        api: `${API_URL}/chat`,
+        getToken: () => tokenRef.current,
+        onRequestSettled: resetWidget,
+      }),
+    [resetWidget],
+  );
+
+  const runtime = useChatRuntime({ transport });
+
   useEffect(() => {
     if (window.turnstile) {
       renderWidget();
@@ -78,163 +131,53 @@ export default function Chat() {
     };
   }, [renderWidget]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  function clearConversation(): void {
-    setMessages([]);
-    setInput('');
-    setError(null);
-    setStatus('idle');
-    setAnnouncement('');
-    tokenRef.current = '';
-    if (widgetRef.current && window.turnstile) {
-      window.turnstile.reset(widgetRef.current);
-    }
-  }
-
-  async function send(text: string): Promise<void> {
-    const trimmed = text.trim();
-    if (trimmed.length === 0 || status === 'streaming') {
-      return;
-    }
-    setError(null);
-    setStatus('streaming');
-    setAnnouncement('Assistente respondendo...');
-    const history: Message[] = [...messages, { role: 'user', content: trimmed }];
-    setMessages([...history, { role: 'assistant', content: '' }]);
-    setInput('');
-    let assistant = '';
-    try {
-      const response = await fetch(`${API_URL}/chat`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ messages: history.slice(-12), turnstileToken: tokenRef.current }),
-      });
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => ({}))) as { code?: string };
-        setStatus(payload.code === 'daily_cap_exceeded' ? 'capped' : 'error');
-        setError(payload.code ?? `HTTP ${response.status}`);
-        setAnnouncement('');
-        setMessages(history);
-        return;
-      }
-      if (!response.body) {
-        throw new Error('missing body');
-      }
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) {
-          break;
-        }
-        buffer += decoder.decode(value, { stream: true });
-        const parsed = parseSseBuffer(buffer);
-        buffer = parsed.rest;
-        for (const streamEvent of parsed.events) {
-          if (streamEvent.event === 'token') {
-            const data = JSON.parse(streamEvent.data) as { delta: string };
-            assistant += data.delta;
-            setMessages([...history, { role: 'assistant', content: assistant }]);
-          } else if (streamEvent.event === 'error') {
-            setStatus('error');
-            setError('stream interrompido');
-          }
-        }
-      }
-      setStatus((current) => (current === 'streaming' ? 'idle' : current));
-      setAnnouncement('Resposta recebida.');
-    } catch {
-      setStatus('error');
-      setError('falha de rede');
-      setAnnouncement('');
-      setMessages(
-        assistant.length === 0 ? history : [...history, { role: 'assistant', content: assistant }],
-      );
-    } finally {
-      tokenRef.current = '';
-      if (widgetRef.current && window.turnstile) {
-        window.turnstile.reset(widgetRef.current);
-      }
-    }
-  }
-
   return (
     <div className={styles.chat}>
-      <p className={styles.srOnly} role="status" aria-live="polite">
-        {announcement}
-      </p>
-      <div className={styles.toolbar}>
-        <button type="button" className={styles.clear} onClick={clearConversation}>
-          Limpar
-        </button>
-      </div>
-      <div className={styles.messages}>
-        {messages.length === 0 && (
-          <div className={styles.suggestions}>
-            {SUGGESTIONS.map((suggestion) => (
-              <button
-                key={suggestion}
-                type="button"
-                className={styles.suggestion}
-                onClick={() => void send(suggestion)}
-              >
-                {suggestion}
-              </button>
-            ))}
-          </div>
-        )}
-        {messages.map((message, index) => (
-          <div
-            key={index}
-            className={message.role === 'user' ? styles.user : styles.assistant}
-          >
-            {message.role === 'assistant' ? (
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {message.content.length > 0 ? message.content : '...'}
-              </ReactMarkdown>
-            ) : (
-              <p>{message.content}</p>
-            )}
-          </div>
-        ))}
-        <div ref={bottomRef} />
-      </div>
-      {error && (
-        <p className={styles.error} role="alert">
-          {status === 'capped'
-            ? 'Limite diario de mensagens atingido. Tente novamente mais tarde.'
-            : error}
-        </p>
-      )}
-      <form
-        className={styles.form}
-        onSubmit={(event) => {
-          event.preventDefault();
-          void send(input);
-        }}
-      >
-        <label className={styles.label} htmlFor="chat-input">
-          Mensagem
-        </label>
-        <input
-          id="chat-input"
-          className={styles.input}
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          placeholder="Pergunte sobre o Paulo..."
-        />
-        <button
-          type="submit"
-          className={styles.send}
-          disabled={status === 'streaming' || input.trim().length === 0}
-        >
-          Enviar
-        </button>
-      </form>
+      <AssistantRuntimeProvider runtime={runtime}>
+        <ThreadPrimitive.Root className={styles.thread}>
+          <ThreadPrimitive.Viewport className={styles.messages}>
+            <AuiIf condition={(state) => state.thread.isEmpty}>
+              <div className={styles.suggestions}>
+                {SUGGESTIONS.map((suggestion) => (
+                  <ThreadPrimitive.Suggestion
+                    key={suggestion}
+                    prompt={suggestion}
+                    send
+                    className={styles.suggestion}
+                  >
+                    {suggestion}
+                  </ThreadPrimitive.Suggestion>
+                ))}
+              </div>
+            </AuiIf>
+            <ThreadPrimitive.Messages>
+              {({ message }) => (
+                <MessagePrimitive.Root
+                  className={
+                    message.role === 'user'
+                      ? `${styles.message} ${styles.user}`
+                      : `${styles.message} ${styles.assistant}`
+                  }
+                >
+                  <MessagePrimitive.Parts />
+                </MessagePrimitive.Root>
+              )}
+            </ThreadPrimitive.Messages>
+          </ThreadPrimitive.Viewport>
+          <ChatError />
+          <ComposerPrimitive.Root className={styles.form}>
+            <label className={styles.label} htmlFor="chat-input">
+              Mensagem
+            </label>
+            <ComposerPrimitive.Input
+              id="chat-input"
+              className={styles.input}
+              placeholder="Pergunte sobre o Paulo..."
+            />
+            <ComposerPrimitive.Send className={styles.send}>Enviar</ComposerPrimitive.Send>
+          </ComposerPrimitive.Root>
+        </ThreadPrimitive.Root>
+      </AssistantRuntimeProvider>
       <div ref={containerRef} className={styles.turnstile} />
       <Script
         src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"

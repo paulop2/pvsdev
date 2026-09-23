@@ -1,7 +1,7 @@
 import { corsHeaders, isAllowedOrigin } from './cors';
 import { validateChatRequest, type ChatMessage } from './validation';
 import { SYSTEM_PROMPT } from './system-prompt';
-import { toSseStream, type ModelMessage, type Usage } from './chat';
+import { toTextStream, type ModelMessage, type Usage } from './chat';
 import type { Config } from './config';
 import type { LlmProvider } from './providers';
 
@@ -122,17 +122,16 @@ export function createHandler(deps: HandlerDeps): (request: Request) => Promise<
       return jsonResponse(502, { code: 'upstream_error' }, cors);
     }
 
-    const stream = toSseStream({
+    const stream = toTextStream({
       upstream,
       promptChars,
-      model: deps.config.model,
       onUsage: (usage: Usage) => deps.addTokens(usage.prompt + usage.completion),
     });
 
     return new Response(stream, {
       status: 200,
       headers: {
-        'content-type': 'text/event-stream; charset=utf-8',
+        'content-type': 'text/plain; charset=utf-8',
         'cache-control': 'no-cache',
         ...cors,
       },
