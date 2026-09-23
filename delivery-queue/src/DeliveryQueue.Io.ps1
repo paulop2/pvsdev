@@ -36,6 +36,7 @@ function New-DeliveryQueueIoAdapter {
     $exitLock = Get-Command -Name Exit-QueueLock -CommandType Function
     $invokeGitIn = Get-Command -Name Invoke-GitIn -CommandType Function
     $invokeProcessFn = Get-Command -Name Invoke-Process -CommandType Function
+    $getArray = Get-Command -Name Get-Array -CommandType Function
 
     if (-not $InvokeProcess) {
         $InvokeProcess = { param($FilePath, $Arguments, $WorkingDirectory, $TimeoutSeconds) & $invokeProcessFn -FilePath $FilePath -Arguments $Arguments -WorkingDirectory $WorkingDirectory -TimeoutSeconds $TimeoutSeconds }.GetNewClosure()
@@ -202,12 +203,15 @@ function New-DeliveryQueueIoAdapter {
         if (-not (Test-Path -LiteralPath $root)) { New-Item -ItemType Directory -Force -Path $root | Out-Null }
         $temp = Join-Path $root ("dq-verify-" + [Guid]::NewGuid().ToString('N'))
         & $invokeGitIn -WorkingDirectory (Get-Location).Path -Arguments @('worktree', 'add', '--detach', $temp, "origin/$Branch") | Out-Null
-        $result = 'pass'
+        $result = 'fail'
         try {
-            foreach ($command in @($Commands)) {
-                $run = & $InvokeProcess -FilePath 'cmd.exe' -Arguments @('/d', '/s', '/c', $command) -WorkingDirectory $temp -TimeoutSeconds 0
-                if ($run.exitCode -ne 0) { $result = 'fail'; break }
-            }
+            $retries = [int](& $getProp -Object $Policy -Name 'postMergeRetries' -Default 0)
+            $setup = @(& $getArray -Value (& $getProp -Object $Policy -Name 'postMergeSetupCommands'))
+            $result = Invoke-VerifyCommands -Commands @($Commands) -SetupCommands $setup -WorkingDirectory $temp -Retries $retries -InvokeProcess $InvokeProcess
+        }
+        catch {
+            $result = 'fail'
+            [Console]::Error.WriteLine("verify_post_merge_error: $($_.Exception.Message)")
         }
         finally {
             & $invokeGitIn -WorkingDirectory (Get-Location).Path -Arguments @('worktree', 'remove', '--force', $temp) | Out-Null

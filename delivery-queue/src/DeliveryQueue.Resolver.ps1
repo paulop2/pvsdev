@@ -59,6 +59,21 @@ function Test-DeliveryQueuePolicy {
         $problems += "completionWithoutCode invalido: '$completion'"
     }
 
+    $retries = Get-Prop -Object $Policy -Name 'postMergeRetries'
+    if ($null -ne $retries) {
+        if (-not ($retries -is [int] -or $retries -is [long] -or $retries -is [double])) {
+            $problems += 'postMergeRetries deve ser inteiro'
+        }
+        elseif ([int]$retries -lt 0) {
+            $problems += 'postMergeRetries deve ser >= 0'
+        }
+    }
+
+    $setup = Get-Prop -Object $Policy -Name 'postMergeSetupCommands'
+    if ($null -ne $setup -and -not ($setup -is [array] -or $setup -is [string])) {
+        $problems += 'postMergeSetupCommands deve ser array de strings'
+    }
+
     return ,$problems
 }
 

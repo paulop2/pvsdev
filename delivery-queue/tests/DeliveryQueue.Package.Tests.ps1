@@ -1,6 +1,7 @@
 Set-StrictMode -Version Latest
 BeforeAll {
     $repoRoot = (Resolve-Path "$PSScriptRoot/../..").Path
+    . (Join-Path $repoRoot 'delivery-queue/src/DeliveryQueue.Resolver.ps1')
 
     function Get-Frontmatter {
         param([string]$Path)
@@ -63,5 +64,18 @@ Describe 'politica local do pvsdev' {
         $policy.mergeMode | Should -Be 'human'
         $policy.merge.authorizedByLocalRules | Should -BeFalse
         $policy.defaultBranch | Should -Be 'master'
+    }
+
+    It 'configura setup de deps e retries na verificacao pos-merge' {
+        $path = Join-Path $repoRoot '.delivery-queue/policy.json'
+        $policy = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
+        @($policy.postMergeSetupCommands).Count | Should -BeGreaterThan 0
+        $policy.postMergeRetries | Should -BeGreaterThan 0
+    }
+
+    It 'passa na validacao de politica' {
+        $path = Join-Path $repoRoot '.delivery-queue/policy.json'
+        $policy = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
+        (Test-DeliveryQueuePolicy -Policy $policy).Count | Should -Be 0
     }
 }
