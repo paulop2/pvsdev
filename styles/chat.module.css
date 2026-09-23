@@ -29,9 +29,9 @@
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.75rem;
-  border: 1px solid #8884;
+  border: 1px solid var(--line-strong);
   border-radius: 12px;
-  background: #8881;
+  background: var(--bg-1);
 }
 
 .threadListInner {
@@ -43,7 +43,7 @@
 .newThread {
   width: 100%;
   padding: 0.5rem 0.75rem;
-  border: 1px solid #8884;
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
   background: transparent;
   cursor: pointer;
@@ -52,8 +52,8 @@
 }
 
 .newThread[aria-current='true'] {
-  border-color: #2b6cb0;
-  color: #2b6cb0;
+  border-color: var(--accent-soft);
+  color: var(--accent-soft);
 }
 
 .threadItem {
@@ -78,8 +78,12 @@
   white-space: nowrap;
 }
 
+.threadTrigger:hover {
+  background: var(--bg-2);
+}
+
 .threadItem[data-active='true'] .threadTrigger {
-  background: #2b6cb0;
+  background: var(--accent-deep);
   color: #fff;
 }
 
@@ -100,14 +104,14 @@
 
 .threadMore:hover,
 .threadMore[data-state='open'] {
-  background: #8883;
+  background: var(--bg-2);
 }
 
 .threadMenu {
   z-index: 20;
   min-width: 9rem;
   padding: 0.25rem;
-  border: 1px solid #8884;
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
   background: Canvas;
   color: CanvasText;
@@ -123,17 +127,17 @@
 }
 
 .threadMenuItem[data-highlighted] {
-  background: #8883;
+  background: var(--bg-2);
 }
 
 .threadMenuItemDanger {
-  color: #c53030;
+  color: #fca5a5;
 }
 
 .threadMenuSeparator {
   height: 1px;
   margin: 0.25rem 0;
-  background: #8884;
+  background: var(--line-strong);
 }
 
 .renameForm {
@@ -147,15 +151,17 @@
   flex: 1;
   min-width: 0;
   padding: 0.4rem 0.6rem;
-  border: 1px solid #8884;
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
+  background: transparent;
+  color: inherit;
   font: inherit;
 }
 
 .renameSave,
 .renameCancel {
   padding: 0.4rem 0.6rem;
-  border: 1px solid #8884;
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
   background: transparent;
   cursor: pointer;
@@ -164,8 +170,8 @@
 }
 
 .renameSave {
-  border-color: #2b6cb0;
-  background: #2b6cb0;
+  border-color: var(--accent-deep);
+  background: var(--accent-deep);
   color: #fff;
 }
 
@@ -196,12 +202,16 @@
 }
 
 .suggestion {
-  border: 1px solid #8884;
+  border: 1px solid var(--line-strong);
   border-radius: 999px;
   background: transparent;
   padding: 0.5rem 0.9rem;
   cursor: pointer;
   font: inherit;
+}
+
+.suggestion:hover {
+  background: var(--bg-2);
 }
 
 .user,
@@ -214,13 +224,14 @@
 
 .user {
   align-self: flex-end;
-  background: #2b6cb0;
+  background: var(--accent-deep);
   color: #fff;
 }
 
 .assistant {
   align-self: flex-start;
-  background: #8881;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
 }
 
 .messageFooter {
@@ -238,7 +249,7 @@
 }
 
 .action {
-  border: 1px solid #8884;
+  border: 1px solid var(--line-strong);
   border-radius: 6px;
   background: transparent;
   color: inherit;
@@ -261,7 +272,7 @@
 }
 
 .branchButton {
-  border: 1px solid #8884;
+  border: 1px solid var(--line-strong);
   border-radius: 6px;
   background: transparent;
   color: inherit;
@@ -301,7 +312,7 @@
 
 .cancel {
   padding: 0.45rem 0.9rem;
-  border: 1px solid #8884;
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
   background: transparent;
   color: inherit;
@@ -489,7 +500,7 @@
 
 .markdown :global(.hljs-comment),
 .markdown :global(.hljs-quote) {
-  color: #6b7a6f;
+  color: #9bb09e;
   font-style: italic;
 }
 
@@ -564,7 +575,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  border: 1px solid #8884;
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
   padding: 0.5rem;
 }
@@ -583,7 +594,7 @@
 }
 
 .attachmentRemove {
-  border: 1px solid #8884;
+  border: 1px solid var(--line-strong);
   border-radius: 6px;
   background: transparent;
   padding: 0.2rem 0.5rem;
@@ -598,14 +609,14 @@
   overflow: auto;
   padding: 0.4rem;
   border-radius: 6px;
-  background: #8881;
+  background: var(--bg-2);
   font-size: 0.75rem;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
 .attachmentError {
-  color: #c53030;
+  color: #fca5a5;
   font-size: 0.8rem;
   margin: 0;
 }
@@ -618,7 +629,7 @@
 
 .attach {
   padding: 0.6rem 0.9rem;
-  border: 1px solid #8884;
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
   background: transparent;
   font: inherit;
@@ -627,8 +638,10 @@
 
 .input {
   padding: 0.6rem;
-  border: 1px solid #8884;
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
+  background: transparent;
+  color: inherit;
   font: inherit;
 }
 
@@ -636,7 +649,7 @@
   padding: 0.6rem 1.1rem;
   border: 0;
   border-radius: 8px;
-  background: #2b6cb0;
+  background: var(--accent-deep);
   color: #fff;
   font: inherit;
   cursor: pointer;
@@ -647,8 +660,22 @@
   cursor: not-allowed;
 }
 
+.stop {
+  padding: 0.6rem 1.1rem;
+  border: 1px solid var(--line-bright);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.stop:hover {
+  background: var(--bg-2);
+}
+
 .error {
-  color: #c53030;
+  color: #fca5a5;
 }
 
 .turnstile {
@@ -673,11 +700,68 @@
 }
 
 .clear {
-  border: 1px solid #8884;
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
   background: transparent;
   padding: 0.35rem 0.8rem;
   cursor: pointer;
   font: inherit;
   font-size: 0.85rem;
+}
+
+/* Indicador de geracao em andamento no botao de parar. */
+.stop::before {
+  content: '';
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-right: 0.45rem;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  vertical-align: middle;
+  animation: chatPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes chatPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .newThread,
+  .threadTrigger,
+  .threadMore,
+  .action,
+  .branchButton,
+  .suggestion,
+  .attach,
+  .send,
+  .stop,
+  .cancel,
+  .renameSave,
+  .renameCancel,
+  .codeCopy,
+  .attachmentRemove {
+    transition:
+      background-color var(--duration-hover) var(--ease-default),
+      border-color var(--duration-hover) var(--ease-default),
+      color var(--duration-hover) var(--ease-default);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stop::before {
+    animation: none;
+    opacity: 1;
+  }
+
+  .messages {
+    scroll-behavior: auto;
+  }
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import Script from 'next/script';
 import {
   ActionBarPrimitive,
@@ -25,6 +26,10 @@ import {
   createWorkerAttachmentAdapter,
   previewAttachmentText,
 } from '@/components/chatAttachments';
+import {
+  COMPOSER_SHORTCUT_HINT,
+  resolveComposerKey,
+} from '@/components/chatKeyboard';
 import { resolveMessageKind } from '@/components/chatMessages';
 import {
   normalizeThreadTitle,
@@ -99,9 +104,14 @@ function ChatError() {
   );
 }
 
-function attachmentErrorMessage(reason: string, message: string, contentType?: string): string {
+function attachmentErrorMessage(
+  reason: string,
+  message: string,
+  contentType?: string,
+): string {
   if (reason === 'not-accepted') {
-    const label = contentType && contentType.length > 0 ? contentType : 'tipo desconhecido';
+    const label =
+      contentType && contentType.length > 0 ? contentType : 'tipo desconhecido';
     return `Anexo recusado (${label}): o assistente so processa arquivos de texto.`;
   }
   return message.length > 0 ? message : 'Nao foi possivel anexar o arquivo.';
@@ -109,8 +119,14 @@ function attachmentErrorMessage(reason: string, message: string, contentType?: s
 
 function AttachmentError() {
   const [message, setMessage] = useState('');
-  useAuiEvent({ scope: '*', event: 'composer.attachmentAddError' }, (payload) => {
-    setMessage(attachmentErrorMessage(payload.reason, payload.message, payload.contentType));
+  useAuiEvent({ scope: '*', event: 'composer.attachmentAddError' }, payload => {
+    setMessage(
+      attachmentErrorMessage(
+        payload.reason,
+        payload.message,
+        payload.contentType,
+      ),
+    );
   });
   useAuiEvent({ scope: '*', event: 'composer.attachmentAdd' }, () => {
     setMessage('');
@@ -159,7 +175,9 @@ function UserMessage() {
       <MessagePrimitive.Parts />
       <div className={styles.messageFooter}>
         <ActionBarPrimitive.Root className={styles.actions} hideWhenRunning>
-          <ActionBarPrimitive.Edit className={styles.action}>Editar</ActionBarPrimitive.Edit>
+          <ActionBarPrimitive.Edit className={styles.action}>
+            Editar
+          </ActionBarPrimitive.Edit>
         </ActionBarPrimitive.Root>
         <BranchPicker />
       </div>
@@ -173,7 +191,9 @@ function AssistantMessage() {
       <MessagePrimitive.Parts components={ASSISTANT_PARTS} />
       <div className={styles.messageFooter}>
         <ActionBarPrimitive.Root className={styles.actions} hideWhenRunning>
-          <ActionBarPrimitive.Reload className={styles.action}>Regenerar</ActionBarPrimitive.Reload>
+          <ActionBarPrimitive.Reload className={styles.action}>
+            Regenerar
+          </ActionBarPrimitive.Reload>
         </ActionBarPrimitive.Root>
         <BranchPicker />
       </div>
@@ -183,7 +203,9 @@ function AssistantMessage() {
 
 function EditComposer() {
   return (
-    <MessagePrimitive.Root className={`${styles.message} ${styles.editMessage}`}>
+    <MessagePrimitive.Root
+      className={`${styles.message} ${styles.editMessage}`}
+    >
       <ComposerPrimitive.Root className={styles.editForm}>
         <label className={styles.label} htmlFor="chat-edit-input">
           Editar mensagem
@@ -194,8 +216,12 @@ function EditComposer() {
           aria-label="Editar mensagem"
         />
         <div className={styles.editActions}>
-          <ComposerPrimitive.Cancel className={styles.cancel}>Cancelar</ComposerPrimitive.Cancel>
-          <ComposerPrimitive.Send className={styles.send}>Salvar</ComposerPrimitive.Send>
+          <ComposerPrimitive.Cancel className={styles.cancel}>
+            Cancelar
+          </ComposerPrimitive.Cancel>
+          <ComposerPrimitive.Send className={styles.send}>
+            Salvar
+          </ComposerPrimitive.Send>
         </div>
       </ComposerPrimitive.Root>
     </MessagePrimitive.Root>
@@ -331,6 +357,153 @@ function ThreadList() {
   );
 }
 
+function ChatThread() {
+  const aui = useAui();
+  const composerInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const isRunning = useAuiState(state => state.thread.isRunning);
+
+  const handleComposerKeyDown = (
+    event: ReactKeyboardEvent<HTMLTextAreaElement>,
+  ) => {
+    const action = resolveComposerKey({
+      key: event.key,
+      shiftKey: event.shiftKey,
+      isRunning: aui.thread.getState().isRunning,
+      isComposing: event.nativeEvent.isComposing,
+    });
+    if (action === 'send') {
+      if (!aui.composer.getState().canSend) {
+        return;
+      }
+      event.preventDefault();
+      aui.composer.send();
+      return;
+    }
+    if (action === 'stop') {
+      if (!aui.composer.getState().canCancel) {
+        return;
+      }
+      event.preventDefault();
+      aui.composer.cancel();
+      composerInputRef.current?.focus();
+    }
+  };
+
+  return (
+    <div className={styles.main}>
+      <ThreadPrimitive.Root className={styles.thread}>
+        <ThreadPrimitive.Viewport
+          className={styles.messages}
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions text"
+          aria-busy={isRunning}
+          aria-label="Mensagens da conversa"
+        >
+          <AuiIf condition={state => state.thread.isEmpty}>
+            <div className={styles.suggestions}>
+              {SUGGESTIONS.map(suggestion => (
+                <ThreadPrimitive.Suggestion
+                  key={suggestion}
+                  prompt={suggestion}
+                  send
+                  className={styles.suggestion}
+                >
+                  {suggestion}
+                </ThreadPrimitive.Suggestion>
+              ))}
+            </div>
+          </AuiIf>
+          <ThreadPrimitive.Messages>
+            {({ message }) => {
+              switch (resolveMessageKind(message)) {
+                case 'edit':
+                  return <EditComposer />;
+                case 'user':
+                  return <UserMessage />;
+                default:
+                  return <AssistantMessage />;
+              }
+            }}
+          </ThreadPrimitive.Messages>
+        </ThreadPrimitive.Viewport>
+        <ChatError />
+        <AttachmentError />
+        <ComposerPrimitive.Root className={styles.form}>
+          <div className={styles.attachments}>
+            <ComposerPrimitive.Attachments>
+              {({ attachment }) => (
+                <AttachmentPrimitive.Root className={styles.attachment}>
+                  <div className={styles.attachmentHeader}>
+                    <span className={styles.attachmentName}>
+                      <AttachmentPrimitive.Name />
+                    </span>
+                    <AttachmentPrimitive.Remove
+                      className={styles.attachmentRemove}
+                      aria-label={`Remover anexo ${attachment.name}`}
+                    >
+                      Remover
+                    </AttachmentPrimitive.Remove>
+                  </div>
+                  {attachment.status.type === 'incomplete' ? (
+                    <p className={styles.attachmentError}>
+                      {attachment.status.message}
+                    </p>
+                  ) : (
+                    <pre className={styles.attachmentPreview}>
+                      {previewAttachmentText(attachment.content)}
+                    </pre>
+                  )}
+                </AttachmentPrimitive.Root>
+              )}
+            </ComposerPrimitive.Attachments>
+          </div>
+          <label className={styles.label} htmlFor="chat-input">
+            Mensagem
+          </label>
+          <p id="chat-shortcuts-hint" className={styles.srOnly}>
+            {COMPOSER_SHORTCUT_HINT}
+          </p>
+          <div className={styles.composerRow}>
+            <ComposerPrimitive.AddAttachment
+              className={styles.attach}
+              aria-label="Anexar arquivo de texto"
+            >
+              Anexar
+            </ComposerPrimitive.AddAttachment>
+            <ComposerPrimitive.Input
+              id="chat-input"
+              ref={composerInputRef}
+              className={styles.input}
+              placeholder="Pergunte sobre o Paulo..."
+              submitMode="none"
+              aria-describedby="chat-shortcuts-hint"
+              onKeyDown={handleComposerKeyDown}
+            />
+            <AuiIf condition={state => state.thread.isRunning}>
+              <ComposerPrimitive.Cancel
+                className={styles.stop}
+                aria-label="Parar geracao"
+                onClick={() => composerInputRef.current?.focus()}
+              >
+                Parar
+              </ComposerPrimitive.Cancel>
+            </AuiIf>
+            <AuiIf condition={state => !state.thread.isRunning}>
+              <ComposerPrimitive.Send
+                className={styles.send}
+                aria-label="Enviar mensagem"
+              >
+                Enviar
+              </ComposerPrimitive.Send>
+            </AuiIf>
+          </div>
+        </ComposerPrimitive.Root>
+      </ThreadPrimitive.Root>
+    </div>
+  );
+}
+
 export default function Chat() {
   const tokenRef = useRef('');
   const widgetRef = useRef<string | null>(null);
@@ -413,85 +586,7 @@ export default function Chat() {
       <AssistantRuntimeProvider runtime={runtime}>
         <div className={styles.layout}>
           <ThreadList />
-          <div className={styles.main}>
-            <ThreadPrimitive.Root className={styles.thread}>
-              <ThreadPrimitive.Viewport className={styles.messages}>
-                <AuiIf condition={(state) => state.thread.isEmpty}>
-                  <div className={styles.suggestions}>
-                    {SUGGESTIONS.map((suggestion) => (
-                      <ThreadPrimitive.Suggestion
-                        key={suggestion}
-                        prompt={suggestion}
-                        send
-                        className={styles.suggestion}
-                      >
-                        {suggestion}
-                      </ThreadPrimitive.Suggestion>
-                    ))}
-                  </div>
-                </AuiIf>
-                <ThreadPrimitive.Messages>
-                  {({ message }) => {
-                    switch (resolveMessageKind(message)) {
-                      case 'edit':
-                        return <EditComposer />;
-                      case 'user':
-                        return <UserMessage />;
-                      default:
-                        return <AssistantMessage />;
-                    }
-                  }}
-                </ThreadPrimitive.Messages>
-              </ThreadPrimitive.Viewport>
-              <ChatError />
-              <AttachmentError />
-              <ComposerPrimitive.Root className={styles.form}>
-                <div className={styles.attachments}>
-                  <ComposerPrimitive.Attachments>
-                    {({ attachment }) => (
-                      <AttachmentPrimitive.Root className={styles.attachment}>
-                        <div className={styles.attachmentHeader}>
-                          <span className={styles.attachmentName}>
-                            <AttachmentPrimitive.Name />
-                          </span>
-                          <AttachmentPrimitive.Remove
-                            className={styles.attachmentRemove}
-                            aria-label={`Remover anexo ${attachment.name}`}
-                          >
-                            Remover
-                          </AttachmentPrimitive.Remove>
-                        </div>
-                        {attachment.status.type === 'incomplete' ? (
-                          <p className={styles.attachmentError}>{attachment.status.message}</p>
-                        ) : (
-                          <pre className={styles.attachmentPreview}>
-                            {previewAttachmentText(attachment.content)}
-                          </pre>
-                        )}
-                      </AttachmentPrimitive.Root>
-                    )}
-                  </ComposerPrimitive.Attachments>
-                </div>
-                <label className={styles.label} htmlFor="chat-input">
-                  Mensagem
-                </label>
-                <div className={styles.composerRow}>
-                  <ComposerPrimitive.AddAttachment
-                    className={styles.attach}
-                    aria-label="Anexar arquivo de texto"
-                  >
-                    Anexar
-                  </ComposerPrimitive.AddAttachment>
-                  <ComposerPrimitive.Input
-                    id="chat-input"
-                    className={styles.input}
-                    placeholder="Pergunte sobre o Paulo..."
-                  />
-                  <ComposerPrimitive.Send className={styles.send}>Enviar</ComposerPrimitive.Send>
-                </div>
-              </ComposerPrimitive.Root>
-            </ThreadPrimitive.Root>
-          </div>
+          <ChatThread />
         </div>
       </AssistantRuntimeProvider>
       <div ref={containerRef} className={styles.turnstile} />
