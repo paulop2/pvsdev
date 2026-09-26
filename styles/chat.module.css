@@ -678,10 +678,6 @@
   color: #fca5a5;
 }
 
-.turnstile {
-  min-height: 1px;
-}
-
 .srOnly {
   position: absolute;
   width: 1px;

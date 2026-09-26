@@ -1,9 +1,7 @@
 import {
   TextStreamChatTransport,
-  type ChatTransport,
   type HttpChatTransportInitOptions,
   type UIMessage,
-  type UIMessageChunk,
 } from 'ai';
 
 export interface WorkerMessage {
@@ -32,10 +30,8 @@ export function toWorkerMessages(messages: readonly UIMessage[]): WorkerMessage[
   return converted.slice(-MAX_MESSAGES);
 }
 
-export interface TurnstileTransportOptions<UI_MESSAGE extends UIMessage>
+export interface WorkerTransportOptions<UI_MESSAGE extends UIMessage>
   extends HttpChatTransportInitOptions<UI_MESSAGE> {
-  getToken: () => string;
-  onRequestSettled: () => void;
   /**
    * Registra a thread dona da requisicao antes de enviar o historico. O AI SDK
    * informa o id da thread em `chatId`; o assistant-ui promove a thread em
@@ -44,12 +40,10 @@ export interface TurnstileTransportOptions<UI_MESSAGE extends UIMessage>
   initializeThread?: (threadId: string) => Promise<void> | void;
 }
 
-export class TurnstileChatTransport<
+export class WorkerChatTransport<
   UI_MESSAGE extends UIMessage = UIMessage,
 > extends TextStreamChatTransport<UI_MESSAGE> {
-  private readonly onRequestSettled: () => void;
-
-  constructor({ getToken, onRequestSettled, initializeThread, ...options }: TurnstileTransportOptions<UI_MESSAGE>) {
+  constructor({ initializeThread, ...options }: WorkerTransportOptions<UI_MESSAGE>) {
     super({
       ...options,
       prepareSendMessagesRequest: async ({ messages, id }) => {
@@ -57,21 +51,9 @@ export class TurnstileChatTransport<
         return {
           body: {
             messages: toWorkerMessages(messages),
-            turnstileToken: getToken(),
           },
         };
       },
     });
-    this.onRequestSettled = onRequestSettled;
-  }
-
-  override async sendMessages(
-    options: Parameters<ChatTransport<UI_MESSAGE>['sendMessages']>[0],
-  ): Promise<ReadableStream<UIMessageChunk>> {
-    try {
-      return await super.sendMessages(options);
-    } finally {
-      this.onRequestSettled();
-    }
   }
 }

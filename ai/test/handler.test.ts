@@ -33,7 +33,6 @@ function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps {
     provider: providerStub(
       async () => upstream('data: {"response":"ola"}\ndata: [DONE]\n'),
     ),
-    verifyTurnstile: async () => true,
     checkRate: async () => true,
     getUsedTokens: async () => 0,
     addTokens: async () => undefined,
@@ -45,7 +44,6 @@ function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps {
 
 const validBody = {
   messages: [{ role: 'user', content: 'oi' }],
-  turnstileToken: 'token',
 };
 
 function chatRequest(body: unknown, origin = 'https://pvsouza.com'): Request {
@@ -98,17 +96,6 @@ describe('createHandler', () => {
     const handler = createHandler(makeDeps({ provider: providerStub(run) }));
     const response = await handler(chatRequest({ messages: [] }));
     expect(response.status).toBe(400);
-    expect(run).not.toHaveBeenCalled();
-  });
-
-  it('bloqueia Turnstile invalido com 403 e nao chama a IA', async () => {
-    const run = vi.fn();
-    const handler = createHandler(
-      makeDeps({ verifyTurnstile: async () => false, provider: providerStub(run) }),
-    );
-    const response = await handler(chatRequest(validBody));
-    expect(response.status).toBe(403);
-    expect((await response.json<{ code: string }>()).code).toBe('turnstile_failed');
     expect(run).not.toHaveBeenCalled();
   });
 

@@ -9,7 +9,6 @@ export interface ChatMessage {
 
 export interface ChatRequest {
   messages: ChatMessage[];
-  turnstileToken: string;
 }
 
 export type ValidationResult =
@@ -21,10 +20,6 @@ export function validateChatRequest(body: unknown, config: Config): ValidationRe
     return { ok: false, error: 'body must be an object' };
   }
   const record = body as Record<string, unknown>;
-  const token = record.turnstileToken;
-  if (typeof token !== 'string' || token.trim().length === 0) {
-    return { ok: false, error: 'turnstileToken is required' };
-  }
   const messages = record.messages;
   if (!Array.isArray(messages) || messages.length === 0) {
     return { ok: false, error: 'messages must be a non-empty array' };
@@ -60,5 +55,5 @@ export function validateChatRequest(body: unknown, config: Config): ValidationRe
   if (parsed[parsed.length - 1].role !== 'user') {
     return { ok: false, error: 'last message must be from user' };
   }
-  return { ok: true, value: { messages: parsed, turnstileToken: token } };
+  return { ok: true, value: { messages: parsed } };
 }

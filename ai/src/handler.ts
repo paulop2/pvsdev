@@ -8,7 +8,6 @@ import type { LlmProvider } from './providers';
 export interface HandlerDeps {
   config: Config;
   provider: LlmProvider;
-  verifyTurnstile: (token: string, ip: string | null) => Promise<boolean>;
   checkRate: (ip: string) => Promise<boolean>;
   getUsedTokens: () => Promise<number>;
   addTokens: (tokens: number) => Promise<void>;
@@ -79,11 +78,6 @@ export function createHandler(deps: HandlerDeps): (request: Request) => Promise<
     }
 
     const ip = request.headers.get('cf-connecting-ip');
-    const turnstileOk = await deps.verifyTurnstile(validation.value.turnstileToken, ip);
-    if (!turnstileOk) {
-      return jsonResponse(403, { code: 'turnstile_failed' }, cors);
-    }
-
     const withinRate = await deps.checkRate(ip ?? 'unknown');
     if (!withinRate) {
       return new Response(JSON.stringify({ code: 'rate_limited' }), {

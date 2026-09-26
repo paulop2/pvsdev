@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
-import Script from 'next/script';
 import {
   ActionBarPrimitive,
   AssistantRuntimeProvider,
@@ -21,7 +20,7 @@ import {
 } from '@assistant-ui/react';
 import { useAISDKError, useChatRuntime } from '@assistant-ui/ai-sdk';
 import { MarkdownText } from '@/components/MarkdownText';
-import { TurnstileChatTransport } from '@/components/chatTransport';
+import { WorkerChatTransport } from '@/components/chatTransport';
 import {
   createWorkerAttachmentAdapter,
   previewAttachmentText,
@@ -40,25 +39,7 @@ import styles from '@/styles/chat.module.css';
 
 const ASSISTANT_PARTS = { Text: MarkdownText };
 
-declare global {
-  interface Window {
-    turnstile?: {
-      render: (
-        container: HTMLElement,
-        options: {
-          sitekey: string;
-          callback: (token: string) => void;
-          'expired-callback'?: () => void;
-        },
-      ) => string;
-      reset: (widgetId?: string) => void;
-      remove: (widgetId?: string) => void;
-    };
-  }
-}
-
 const API_URL = process.env.NEXT_PUBLIC_CHAT_API_URL ?? '';
-const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? '';
 const SUGGESTIONS = [
   'Quem e o Paulo?',
   'Quais projetos ele ja fez?',
@@ -77,8 +58,6 @@ function errorMessage(error: Error): string {
     code = raw;
   }
   switch (code) {
-    case 'turnstile_failed':
-      return 'A verificacao de seguranca falhou. Recarregue a pagina e tente novamente.';
     case 'rate_limited':
       return 'Muitas mensagens em pouco tempo. Aguarde um minuto e tente novamente.';
     case 'daily_cap_exceeded':
@@ -505,35 +484,7 @@ function ChatThread() {
 }
 
 export default function Chat() {
-  const tokenRef = useRef('');
-  const widgetRef = useRef<string | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
   const runtimeRef = useRef<ReturnType<typeof useChatRuntime> | null>(null);
-
-  const renderWidget = useCallback(() => {
-    if (widgetRef.current) {
-      return;
-    }
-    if (!containerRef.current || !window.turnstile || SITE_KEY.length === 0) {
-      return;
-    }
-    widgetRef.current = window.turnstile.render(containerRef.current, {
-      sitekey: SITE_KEY,
-      callback: token => {
-        tokenRef.current = token;
-      },
-      'expired-callback': () => {
-        tokenRef.current = '';
-      },
-    });
-  }, []);
-
-  const resetWidget = useCallback(() => {
-    tokenRef.current = '';
-    if (widgetRef.current && window.turnstile) {
-      window.turnstile.reset(widgetRef.current);
-    }
-  }, []);
 
   const initializeThread = useCallback(async (threadId: string) => {
     const item = runtimeRef.current?.threads.getItemById(threadId);
@@ -549,13 +500,11 @@ export default function Chat() {
 
   const transport = useMemo(
     () =>
-      new TurnstileChatTransport({
+      new WorkerChatTransport({
         api: `${API_URL}/chat`,
-        getToken: () => tokenRef.current,
-        onRequestSettled: resetWidget,
         initializeThread,
       }),
-    [resetWidget, initializeThread],
+    [initializeThread],
   );
 
   const attachmentAdapter = useMemo(() => createWorkerAttachmentAdapter(), []);
@@ -569,18 +518,6 @@ export default function Chat() {
     runtimeRef.current = runtime;
   }, [runtime]);
 
-  useEffect(() => {
-    if (window.turnstile) {
-      renderWidget();
-    }
-    return () => {
-      if (widgetRef.current) {
-        window.turnstile?.remove(widgetRef.current);
-        widgetRef.current = null;
-      }
-    };
-  }, [renderWidget]);
-
   return (
     <div className={styles.chat}>
       <AssistantRuntimeProvider runtime={runtime}>
@@ -589,12 +526,6 @@ export default function Chat() {
           <ChatThread />
         </div>
       </AssistantRuntimeProvider>
-      <div ref={containerRef} className={styles.turnstile} />
-      <Script
-        src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
-        strategy="afterInteractive"
-        onLoad={renderWidget}
-      />
     </div>
   );
 }
