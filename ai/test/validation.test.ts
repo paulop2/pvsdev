@@ -6,7 +6,6 @@ const config = loadConfig({});
 
 const valid = {
   messages: [{ role: 'user', content: 'ola' }],
-  turnstileToken: 'token',
 };
 
 describe('validateChatRequest', () => {
@@ -15,18 +14,12 @@ describe('validateChatRequest', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.messages).toHaveLength(1);
-      expect(result.value.turnstileToken).toBe('token');
     }
   });
 
   it('rejeita corpo nao-objeto', () => {
     expect(validateChatRequest(null, config).ok).toBe(false);
     expect(validateChatRequest('x', config).ok).toBe(false);
-  });
-
-  it('rejeita turnstileToken ausente', () => {
-    const result = validateChatRequest({ messages: valid.messages }, config);
-    expect(result.ok).toBe(false);
   });
 
   it('rejeita lista de mensagens vazia', () => {

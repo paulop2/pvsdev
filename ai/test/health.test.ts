@@ -6,7 +6,6 @@ const env = {
   CHAT_MODEL: 'test-model',
   DAILY_TOKEN_CAP: '1000',
   ALLOWED_ORIGINS: 'https://pvsouza.com',
-  TURNSTILE_SECRET: 'secret',
 } as unknown as Env;
 
 describe('health', () => {

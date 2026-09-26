@@ -14,5 +14,4 @@ export interface Env {
   CEREBRAS_MODEL?: string;
   DAILY_TOKEN_CAP: string;
   ALLOWED_ORIGINS: string;
-  TURNSTILE_SECRET: string;
 }

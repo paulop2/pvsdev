@@ -1,7 +1,6 @@
 import { loadConfig } from './config';
 import { createHandler } from './handler';
 import { createProvider } from './providers';
-import { verifyTurnstile } from './turnstile';
 import { addTokens, capKey, getUsedTokens, type CapStore } from './daily-cap';
 import type { Env } from './env';
 
@@ -15,8 +14,6 @@ export default {
     const handler = createHandler({
       config,
       provider: createProvider(env, config.provider),
-      verifyTurnstile: (token, ip) =>
-        verifyTurnstile({ secret: env.TURNSTILE_SECRET, token, ip }),
       checkRate: async (ip) => {
         const result = await env.CHAT_RATE.limit({ key: ip });
         return result.success;

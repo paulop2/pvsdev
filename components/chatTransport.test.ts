@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { UIMessage, UIMessageChunk } from 'ai';
-import { messageText, toWorkerMessages, TurnstileChatTransport } from './chatTransport';
+import { messageText, toWorkerMessages, WorkerChatTransport } from './chatTransport';
 
 function message(role: 'user' | 'assistant' | 'system', parts: UIMessage['parts']): UIMessage {
   return { id: `${role}-${parts.length}`, role, parts } as UIMessage;
@@ -75,8 +75,8 @@ async function readChunks(stream: ReadableStream<UIMessageChunk>): Promise<UIMes
   return chunks;
 }
 
-describe('TurnstileChatTransport', () => {
-  it('anexa o token, converte as mensagens e reseta apos a requisicao', async () => {
+describe('WorkerChatTransport', () => {
+  it('converte as mensagens e envia ao Worker', async () => {
     const requests: Array<{ url: string; body: unknown }> = [];
     const fetchMock = (async (input: RequestInfo | URL, init?: RequestInit) => {
       requests.push({ url: String(input), body: JSON.parse(String(init?.body ?? '{}')) });
@@ -85,13 +85,8 @@ describe('TurnstileChatTransport', () => {
         headers: { 'content-type': 'text/plain' },
       });
     }) as typeof fetch;
-    let settled = 0;
-    const transport = new TurnstileChatTransport({
+    const transport = new WorkerChatTransport({
       api: 'https://ai.example/chat',
-      getToken: () => 'tok-123',
-      onRequestSettled: () => {
-        settled += 1;
-      },
       fetch: fetchMock,
     });
 
@@ -107,7 +102,7 @@ describe('TurnstileChatTransport', () => {
     expect(requests).toEqual([
       {
         url: 'https://ai.example/chat',
-        body: { messages: [{ role: 'user', content: 'oi' }], turnstileToken: 'tok-123' },
+        body: { messages: [{ role: 'user', content: 'oi' }] },
       },
     ]);
     const deltas = chunks
@@ -115,7 +110,6 @@ describe('TurnstileChatTransport', () => {
       .map((chunk) => chunk.delta)
       .join('');
     expect(deltas).toBe('ola mundo');
-    expect(settled).toBe(1);
   });
 
   it('inicializa a thread antes de enviar o historico', async () => {
@@ -125,10 +119,8 @@ describe('TurnstileChatTransport', () => {
         status: 200,
         headers: { 'content-type': 'text/plain' },
       })) as typeof fetch;
-    const transport = new TurnstileChatTransport({
+    const transport = new WorkerChatTransport({
       api: 'https://ai.example/chat',
-      getToken: () => 'tok-123',
-      onRequestSettled: () => {},
       initializeThread: (threadId) => {
         initialized.push(threadId);
       },
