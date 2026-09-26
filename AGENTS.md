@@ -6,3 +6,4 @@
 - Nunca adicione ferramentas de IA, assistentes, modelos ou automação como autor, coautor, contribuidor ou atribuição em commits, trailers, PRs ou metadados gerados.
 - Nunca grave segredos no repositório.
 - Verificações obrigatórias antes de concluir: `npm run build` e `npm run typecheck`.
+- Delivery queue: o driver e os agentes vivem em `C:\Users\PVS\projetos\harness` (`bin/dq.ps1`, `bin/goal.ps1`); a política local fica em `.delivery-queue/policy.json`.
