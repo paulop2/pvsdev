@@ -44,3 +44,7 @@ next-env.d.ts
 /ai/node_modules/
 /ai/.wrangler/
 /ai/.dev.vars
+
+# build/cache locais
+ai/dist/
+unsloth_compiled_cache/

@@ -1,20 +1,33 @@
 {
-  "$schema": "delivery-queue/schema/policy-v1.json",
+  "$schema": "../../harness/delivery-queue/schema/policy-v1.json",
   "version": 1,
   "repository": "paulop2/pvsdev",
-  "mergeMode": "human",
+  "mergeMode": "auto",
   "defaultBranch": "master",
   "project": null,
   "fallbackEligibility": "label:delivery-queue-ready",
-  "requiredChecks": ["npm run typecheck", "npm run build"],
+  "worktreeSetupCommands": [
+    "npm ci --no-audit --no-fund",
+    "cd ai && npm ci --no-audit --no-fund"
+  ],
+  "requiredChecks": [
+    "npm run typecheck",
+    "npm run build",
+    "npm test",
+    "cd ai && npm run typecheck",
+    "cd ai && npm test"
+  ],
   "requiredRemoteChecks": [],
-  "postMergeSetupCommands": ["npm ci --no-audit --no-fund"],
+  "postMergeSetupCommands": [
+    "npm ci --no-audit --no-fund",
+    "cd ai && npm ci --no-audit --no-fund"
+  ],
   "postMergeRetries": 2,
   "merge": {
     "method": "merge",
     "requireChecksOnPr": true,
     "verifyDefaultBranchAfterMerge": true,
-    "authorizedByLocalRules": false,
+    "authorizedByLocalRules": true,
     "allowAdminBypass": false
   },
   "completionWithoutCode": "requires-evidence",
